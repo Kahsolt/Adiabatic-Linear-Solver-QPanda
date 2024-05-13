@@ -14,10 +14,12 @@ Reproducing the [Quantum Linear Systems Solver via Discrete Adiabatic [arXiv:211
 ### install
 
 - `git clone --recursive https://github.com/Kahsolt/QLSDA-QPanda`
+- `bash ./run.sh`
 
 ### references
 
 - QPanda (C++): [https://github.com/OriginQ/QPanda-2](https://github.com/OriginQ/QPanda-2)
+- Eigen lib: [https://eigen.tuxfamily.org/dox/index.html](https://eigen.tuxfamily.org/dox/index.html)
 - [1] Optimal scaling quantum linear systems solver via discrete adiabatic theorem: [https://arxiv.org/abs/2111.08152](https://arxiv.org/abs/2111.08152)
 - [3] Quantum algorithm for systems of linear equations with exponentially improved dependence on precision: [https://arxiv.org/abs/1511.02306](https://arxiv.org/abs/1511.02306)
 - [4] Hamiltonian Simulation by Qubitization: [https://arxiv.org/abs/1610.06546](https://arxiv.org/abs/1610.06546)
