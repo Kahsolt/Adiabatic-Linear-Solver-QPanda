@@ -36,6 +36,9 @@ Reproducing the [Quantum Linear Systems Solver via Discrete Adiabatic [arXiv:211
   - Lecture - The block-encoding: [https://www.ias.edu/sites/default/files/Tang%20qsvt_lect_1.pdf](https://www.ias.edu/sites/default/files/Tang%20qsvt_lect_1.pdf)
   - Explicit Quantum Circuits for Block Encodings of Certain Sparse Matrices: [https://arxiv.org/abs/2203.10236](https://arxiv.org/abs/2203.10236)
   - FABLE: Fast Approximate Quantum Circuits for Block-Encodings: [https://arxiv.org/abs/2205.00081](https://arxiv.org/abs/2205.00081)
+- QDALS
+  - Quantum state preparation by phase randomization: [https://arxiv.org/abs/0903.1652](https://arxiv.org/abs/0903.1652)
+  - Quantum algorithms for systems of linear equations inspired by adiabatic quantum computing: [https://arxiv.org/abs/1805.10549](https://arxiv.org/abs/1805.10549)
 
 ----
 
