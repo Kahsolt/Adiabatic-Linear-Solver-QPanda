@@ -29,6 +29,15 @@ h1 = np.asarray([[1, -1]]).T / np.sqrt(2)   # |->
 ])
 σp = (σx + 1j*σy) / 2   # σ+
 σm = (σx - 1j*σy) / 2   # σ-
+H = np.asarray([
+  [1,  1],
+  [1, -1],
+]) / np.sqrt(2)
+RY = lambda θ: np.asarray([   # e^(-i*Y*θ/2)
+  [np.cos(θ/2), -np.sin(θ/2)],
+  [np.sin(θ/2),  np.cos(θ/2)],
+])
+I_ = lambda nq: np.eye(2**nq)
 
 # equation
 Am = np.asarray([
@@ -37,6 +46,7 @@ Am = np.asarray([
 ])
 bv = np.asarray([[3, 1]]).T
 N = Am.shape[0]
+nq = int(np.log2(N))
 # normalize both side by |b|
 b_norm = np.linalg.norm(bv)
 A = Am / b_norm

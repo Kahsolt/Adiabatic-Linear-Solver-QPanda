@@ -35,13 +35,13 @@ def sqrt_matrix(A:ndarray):
   evs = evs.astype(vecs.dtype)
   return vecs @ np.diag(np.sqrt(evs)) @ vecs.conj().T
 
-def construct_method(A:ndarray) -> ndarray:
+def qsvt_construct_method(A:ndarray) -> ndarray:
   # https://pennylane.ai/qml/demos/tutorial_intro_qsvt/
   # arXiv:2203.10236 Eq. 3.3
   At = A.conj().T
-  N = A.shape[0]
-  I = np.eye(N)
-  U_A = np.zeros([2*N, 2*N])
+  nq = int(np.log2(A.shape[0]))
+  I = I_(nq)
+  U_A = np.zeros_like(I_(nq+1))
   U_A[:N, :N] = A
   U_A[:N, N:] = sqrt_matrix(I - A @ At)
   U_A[N:, :N] = sqrt_matrix(I - At @ A)
@@ -50,7 +50,7 @@ def construct_method(A:ndarray) -> ndarray:
 
 print('=' * 72)
 print('[Method 1: directly construct]')
-U_H = construct_method(H)
+U_H = qsvt_construct_method(H)
 print_matrix(U_H, 'U_H')
 assert_unitary(U_H)
 print()
