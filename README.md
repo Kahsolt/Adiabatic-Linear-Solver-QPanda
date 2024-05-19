@@ -11,23 +11,30 @@ Reproducing the [Quantum Linear Systems Solver via Discrete Adiabatic [arXiv:211
 队名: 我吃两个  
 
 
-### install
+### Quickstart
 
-- `git clone --recursive https://github.com/Kahsolt/QLSDA-QPanda`
-- `bash ./run.sh`
+- `git clone https://github.com/Kahsolt/QLSDA-QPanda`
+  - add `--recursive` if you want QPanda as well
+- install the C++ version [QPanda](https://github.com/OriginQ/QPanda-2), building from source... 😈
+  - modify `QPANDA_INSTALL_DIR` in [CMakeLists.txt](./CMakeLists.txt) according to your installation
+- just run `make` or `bash ./run.sh` 😀🎉
+
+This is the demo run:
+
+![demo](img/demo.png)
 
 
-### methods
+### Methods
 
 ⚪ block encoding
 
 | Method | restriction | gate implementation | sub-normalzier | ancilla-qubit |
 | :-: | :-: | :-: | :-: | :-: |
-| [QSVT-like](https://pennylane.ai/qml/demos/tutorial_intro_qsvt/) | $ σ_{max} = \|\|A\|\|_2 < 1 $ | cannot generally implement with $ \mathcal{O}(poly(n)) $ gates | - | 1 |
-| [LCU](https://pennylane.ai/qml/demos/tutorial_lcu_blockencoding/) | $ A = \sum\limits_{k=0}^{N-1} \alpha_k U_k $ | $ U_A = \mathrm{PREP}^\dagger \cdot \mathrm{SEL} \cdot \mathrm{PREP} $ | $ \sum_k \|\alpha_k\| $ | $ \lceil log_2(k) \rceil $ |
-| [FABLE](https://arxiv.org/abs/2205.00081) | $ d $-sparse $ A $ | $ U_A = (I_1 \otimes H^{\otimes n} \otimes I_n) (I_1 \otimes \mathrm{SWAP}) O_A (I_1 \otimes H^{\otimes n} \otimes I_n) $ | $ \frac{1}{2^n} $ | $ n + 1 $ |
+| [QSVT-like](https://pennylane.ai/qml/demos/tutorial_intro_qsvt/) | $ σ_{max} = \|\|A\|\|_2 \lt 1 $ | cannot generally implement with $ \mathcal{O}(poly(n)) $ gates | - | 1 |
+| [LCU](https://pennylane.ai/qml/demos/tutorial_lcu_blockencoding/) | $ A = \sum\limits_{k=0}^{N-1} \alpha_k U_k $ | $ U_A = \mathrm{PREP}^\dagger \cdot \mathrm{SEL} \cdot \mathrm{PREP} $ | $ 1 / \sum_k \|\alpha_k\| $ | $ \lceil log_2(k) \rceil $ |
+| [FABLE](https://arxiv.org/abs/2205.00081) | $ d $-sparse $ A, \|a_{ij}\| \le 1 $ | $ U_A = (I_1 \otimes H^{\otimes n} \otimes I_n) (I_1 \otimes \mathrm{SWAP}) O_A (I_1 \otimes H^{\otimes n} \otimes I_n) $ | $ 1 / 2^n $ | $ n + 1 $ |
 
-⚪ linear system solver
+⚪ adiabetic-inspired linear system solver
 
 | Method | encode carrier | sched func $ f(s) $ | complexity |
 | :-: | :-: | :-: | :-: |
@@ -61,6 +68,7 @@ Reproducing the [Quantum Linear Systems Solver via Discrete Adiabatic [arXiv:211
     - Linear combination of unitaries and block encodings: [https://pennylane.ai/qml/demos/tutorial_lcu_blockencoding/](https://pennylane.ai/qml/demos/tutorial_lcu_blockencoding/)
     - Block encoding with matrix access oracles: [https://pennylane.ai/qml/demos/tutorial_block_encoding/](https://pennylane.ai/qml/demos/tutorial_block_encoding/)
   - Lecture - The block-encoding: [https://www.ias.edu/sites/default/files/Tang%20qsvt_lect_1.pdf](https://www.ias.edu/sites/default/files/Tang%20qsvt_lect_1.pdf)
+  - Hamiltonian simulation with nearly optimal dependence on all parameters: [https://arxiv.org/abs/1501.01715](https://arxiv.org/abs/1501.01715)
   - Explicit Quantum Circuits for Block Encodings of Certain Sparse Matrices: [https://arxiv.org/abs/2203.10236](https://arxiv.org/abs/2203.10236)
   - FABLE: Fast Approximate Quantum Circuits for Block-Encodings: [https://arxiv.org/abs/2205.00081](https://arxiv.org/abs/2205.00081)
 

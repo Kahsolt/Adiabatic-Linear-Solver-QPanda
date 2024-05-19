@@ -37,7 +37,7 @@ def sqrt_matrix(A:ndarray):
 
 def qsvt_construct_method(A:ndarray) -> ndarray:
   # https://pennylane.ai/qml/demos/tutorial_intro_qsvt/
-  # arXiv:2203.10236 Eq. 3.3
+  # arXiv:2203.10236 Eq. 3.4
   At = A.conj().T
   nq = int(np.log2(A.shape[0]))
   I = I_(nq)

@@ -130,7 +130,7 @@ if(NOT CMAKE_BUILD_TYPE)
    set(CMAKE_BUILD_TYPE "Debug")
 endif()
 
-# source paths for *.cpp
+# source path for all *.cpp/*.h
 aux_source_directory(./src src)
 
 # include paths for *.h
@@ -147,5 +147,24 @@ include_directories(
 )
 
 # executables
-add_executable(${PROJECT_NAME} ${src})
+add_executable(
+    ${PROJECT_NAME}
+    src/utils.h
+    src/utils.cpp
+    src/block_encoding.h
+    src/block_encoding.cpp
+    src/qda_linear_solver.h
+    src/qda_linear_solver.cpp
+    src/main.cpp
+)
 target_link_libraries(${PROJECT_NAME} ${QPANDA_LIBRARIES} ${LIB_LIST})
+
+add_executable(
+    test_block_encoding
+    src/utils.h
+    src/utils.cpp
+    src/block_encoding.h
+    src/block_encoding.cpp
+    src/block_encoding_test.cpp
+)
+target_link_libraries(test_block_encoding ${QPANDA_LIBRARIES} ${LIB_LIST})
