@@ -12,6 +12,10 @@ echo ">> unittest: block encoders"
 ./bin/test_block_encoding 
 echo
 echo "=================================================="
+echo ">> unittest: linear solvers"
+./bin/test_qda_linear_solver 
+echo
+echo "=================================================="
 echo ">> Contest Solution :)"
 ./bin/CCF_QDALS
 

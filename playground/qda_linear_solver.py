@@ -39,7 +39,11 @@ print()
 1. 准备两个哈密顿量 H0 和 H1
 2. 将线性系统 Ax=b 的解 x 编码为 H1 的一个本征向量 |x>
 3. 制备系统初态 |φ> 为 H0 的一个本征向量，且 |φ> 和 |x> 对应同一个本征值
+  - |φ> = |x(0)> = |\hat{b}> = |-,b>
+  - |x> = |x(1)> = |\hat{x}> = |+,x>
+  - |\hat{x_s}> = Π_j exp(-i*T_j*H(s_j)) |\hat{b}>
 4. 哈密顿量演化模拟从 H0 逐渐演化到 H1，该过程即将初态 |φ> 演化为期望的末态 |x>
+  - 含时哈密顿量 H(s) 被拆成小片，且指数化成酉矩阵/量子门之后，作用在量子态上进行演化
 5. RM 方法的特征在于演化路径是有随机性的 (利用量子芝诺效应QZE)
   - 多步迭代演化，步数 q 由 矩阵A的条件数κ 和 容许误差ε 决定下界
   - 每一步将含时哈密顿量 H(s) 作用在系统上演化 Tj 物理时长, Tj 由随机采样而来
@@ -292,10 +296,11 @@ def arXiv_1910_14596_EF():
   # Eq. 14
   f = lambda s: (1 - κ**(-s)) / (1 - κ**(-1))
 
-print('=' * 42)
-print('[arXiv_1910_14596_EF]')
-arXiv_1910_14596_EF()
-print()
+# FIXME: NotImplemented
+#print('=' * 42)
+#print('[arXiv_1910_14596_EF]')
+#arXiv_1910_14596_EF()
+#print()
 
 
 '''
@@ -393,7 +398,8 @@ def arXiv_2111_08152_QDA():
   fidelity = x_ref.conj().T @ qs
   print('fidelity:', fidelity.item())
 
-print('=' * 42)
-print('[08152_QDA]')
-arXiv_2111_08152_QDA()
-print()
+# FIXME: NotImplemented
+#print('=' * 42)
+#print('[arXiv_2111_08152_QDA]')
+#arXiv_2111_08152_QDA()
+#print()

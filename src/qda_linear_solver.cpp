@@ -1,47 +1,36 @@
 #include "block_encoding.h"
 #include "qda_linear_solver.h"
 
-/// @brief linear solver via quantum discrete adiabatic from arXiv:1909.05500
-/// @param A the matrix of the linear equation
-/// @param b the vector of the linear equation
-/// @return the solution x of A * x = b
-VectorXcd linear_solver_method(MatrixXcd A, VectorXcd b) {
+linear_solver_res linear_solver_naive(MatrixXcd A, VectorXcd b) {
   VectorXcd x(2);
   x << 0.717, 0.689;
-
-  return x;
+  return linear_solver_res(x, x);
 }
 
 
-/*****************************************************************************/
-
+// ↓↓ keep signature for the contest solution
+#define DEBUG
+#ifdef DEBUG
 #include <iostream>
 using namespace std;
+#endif
 
 qdals_res qda_linear_solver(MatrixXcd A, VectorXcd b) {
   // classical solution |x_r>
   VectorXcd s_r = A.colPivHouseholderQr().solve(b);
   VectorXcd x_r = s_r / s_r.norm();
-  cout << "Classical solution: " << x_r.real().transpose() << endl;
   // quantum solution |x>
-  VectorXcd x = linear_solver_method(A, b);
-  cout << "Quantum solution: " << x.real().transpose() << endl;
+  auto res = linear_solver_naive(A, b);
+  VectorXcd x = res.state_phi;
   // fidelity <x_r|x>
-  complex<double> fidelity = x_r.conjugate().transpose().dot(x);
-  cout << "Fidelity: " << fidelity.real() << endl;
+  dcomplex fidelity = x_r.adjoint().dot(x);
+
+#ifdef DEBUG
+  cout << "Classical solution: " << x_r.real().transpose() << endl;
+  cout << "Quantum solution: " << x.real().transpose() << endl;
+  cout << "Fidelity: " << abs(fidelity) << endl;
+#endif
+
   // result pack
   return { x, fidelity };
-}
-
-
-int main() {
-  // test input case
-  MatrixXcd A(2, 2);
-  A << 2, 1, 
-       1, 0;
-  VectorXcd b(2);
-  b << 3, 1;
-
-  // results
-  qdals_res res = qda_linear_solver(A, b);
 }

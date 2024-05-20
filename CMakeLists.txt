@@ -168,3 +168,15 @@ add_executable(
     src/block_encoding_test.cpp
 )
 target_link_libraries(test_block_encoding ${QPANDA_LIBRARIES} ${LIB_LIST})
+
+add_executable(
+    test_qda_linear_solver
+    src/utils.h
+    src/utils.cpp
+    src/block_encoding.h
+    src/block_encoding.cpp
+    src/qda_linear_solver.h
+    src/qda_linear_solver.cpp
+    src/qda_linear_solver_test.cpp
+)
+target_link_libraries(test_qda_linear_solver ${QPANDA_LIBRARIES} ${LIB_LIST})

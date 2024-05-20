@@ -28,6 +28,8 @@ This is the demo run:
 
 ⚪ block encoding
 
+👉 详细文档参见 [DOC.md](DOC.md)
+
 | Method | restriction | gate implementation | sub-normalzier | ancilla-qubit |
 | :-: | :-: | :-: | :-: | :-: |
 | [QSVT-like](https://pennylane.ai/qml/demos/tutorial_intro_qsvt/) | $ σ_{max} = \|\|A\|\|_2 \lt 1 $ | cannot generally implement with $ \mathcal{O}(poly(n)) $ gates | - | 1 |

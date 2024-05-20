@@ -45,6 +45,12 @@ Am = np.asarray([
   [1, 0],
 ])
 bv = np.asarray([[3, 1]]).T
+if not 'magic transform':
+  # left multiply Am.T can turn Am to be posdef :)
+  # but heavily enlarge cond_num 5.828 -> 33.970 :(
+  MAGIC = Am.T
+  Am = MAGIC @ Am
+  bv = MAGIC @ bv
 N = Am.shape[0]
 nq = int(np.log2(N))
 # normalize both side by |b|
