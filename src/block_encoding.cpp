@@ -1,4 +1,5 @@
 #include "Core/Utilities/QPandaNamespace.h"
+#include "Core/Utilities/QProgInfo/QCircuitInfo.h"
 #include "Components/Operator/PauliOperator.h"
 #include "QAlg/Base_QCircuit/AmplitudeEncode.h"
 #include "block_encoding.h"
@@ -139,23 +140,12 @@ block_encoding_res block_encoding_LCU(MatrixXcd A, float eps=1e-8) {
   // 4. build total circuit
   QCircuit qcir = createEmptyCircuit() << PREP << BARRIER(qv) << SEL << PREP.dagger();
 
-  // QCircuit to matrix: 穷举制备每个基态，逐列投影出线路所对应的矩阵
-  int N_ex = pow(2, n_qubit_ex);
-  MatrixXcd U_A(N_ex, N_ex);
-  for (int i = 0; i < N_ex; i++) {
-    int r = i;
-    QCircuit cond;
-    for (int j = 0; j < n_qubit_ex; j++) {
-      if (r % 2 == 1) cond << X(qv[j]);
-      r /= 2;
-    }
-    QProg qprog = createEmptyQProg() << cond << qcir;
-    qvm.directlyRun(qprog);
-    QStat qs = qvm.getQState();
-    for (int j = 0; j < N_ex; j++) 
-      U_A(j, i) = qs[j];
-  }
+  // QCircuit to matrix
+  QProg prog = createEmptyQProg() << qcir;
+  QStat mat_flat = getCircuitMatrix(prog, true);
   qvm.finalize();
+  int N_ex = pow(2, n_qubit_ex);
+  MatrixXcd U_A = Map<MatrixXcd>(mat_flat.data(), N_ex, N_ex);
 
   return block_encoding_res(U_A, 1 / lmbd, qcir);
 }
@@ -164,23 +154,21 @@ block_encoding_res block_encoding_LCU(MatrixXcd A, float eps=1e-8) {
 // Block-Encoding via FABLE method from arXiv:2205.00081
 // Accepting d-sparse square matrix with |a_ij| <= 1
 // @impl translated from https://github.com/PennyLaneAI/pennylane/blob/master/pennylane/templates/subroutines/fable.py
-int block_encoding_FABLE_compute_theta_matrix_M_entry(int row, int col) {
-  int b_and_g = row & ((col >> 1) ^ col);
-  int sum_of_ones = 0;
-  while (b_and_g > 0) {
-    if (b_and_g % 2 == 1)
-      sum_of_ones += 1;
-    b_and_g /= 2;
-  }
-  return (int)pow(-1, sum_of_ones);
-}
-
 VectorXd block_encoding_FABLE_compute_theta(VectorXd alpha) {
   int N = alpha.size();
   MatrixXd M_trans = MatrixXd::Zero(N, N);
   for (int i = 0; i < M_trans.rows(); i++)
-    for (int j = 0; j < M_trans.cols(); j++)
-      M_trans(i, j) = block_encoding_FABLE_compute_theta_matrix_M_entry(j, i);
+    for (int j = 0; j < M_trans.cols(); j++) {
+      int row = j, col = i;     // XXX: the order seems transposed, IDK why :(
+      int b_and_g = row & ((col >> 1) ^ col);
+      int sum_of_ones = 0;
+      while (b_and_g > 0) {
+        if (b_and_g % 2 == 1)
+          sum_of_ones += 1;
+        b_and_g /= 2;
+      }
+      M_trans(i, j) = sum_of_ones % 2 ? -1 : 1;
+    }
   return M_trans * alpha / N;
 }
 
@@ -270,6 +258,7 @@ block_encoding_res block_encoding_FABLE(MatrixXcd A, float eps=1e-8) {
   QCircuit qcir = createEmptyCircuit() << H_circ << BARRIER(qv) << O_A << BARRIER(qv) << SWAP_circ << BARRIER(qv) << H_circ;
 
   // QCircuit to matrix: 穷举制备每个基态，逐列投影出线路所对应的矩阵
+  // XXX: getCircuitMatrix() does NOT work for this, IDK why :(
   int N_ex = pow(2, n_qubit_ex);
   MatrixXcd U_A(N_ex, N_ex);
   for (int i = 0; i < N_ex; i++) {
@@ -287,7 +276,7 @@ block_encoding_res block_encoding_FABLE(MatrixXcd A, float eps=1e-8) {
   }
   qvm.finalize();
 
-  return block_encoding_res(U_A, 1 / pow(2, n_qubit), qcir);
+  return block_encoding_res(U_A, 1 / float(N), qcir);
 }
 
 
