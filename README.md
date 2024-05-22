@@ -50,7 +50,7 @@ This is the demo run:
 | [vanilla AQC](https://arxiv.org/abs/1909.05500) | nullspace | $ f(s) = s $       | $ \mathcal{O}(\kappa^3 / \epsilon) $                                                         |
 | [AQC(P)](https://arxiv.org/abs/1909.05500)      | nullspace | $ f(s) = poly(s) $ | $ \mathcal{O}(\kappa / \epsilon) \sim \mathcal{O}(\kappa \mathrm{log}(\kappa) / \epsilon) $  |
 | [AQC(EXP)](https://arxiv.org/abs/1909.05500)    | nullspace | $ f(s) = exp(s) $  | $ \mathcal{O}(\kappa \mathrm{log}^2(\kappa) \mathrm{log}^4(\mathrm{log}(\kappa)/\epsilon)) $ |
-| [QDA](https://arxiv.org/abs/2111.08152)         | eigen (?) | $ f(s) = poly(s) $ | $ \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $                                           |
+| [QDA](https://arxiv.org/abs/2111.08152) (not implemented) | eigen | $ f(s) = poly(s) $ | $ \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $                                     |
 
 
 ### references

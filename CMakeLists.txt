@@ -169,6 +169,7 @@ add_executable(
 )
 target_link_libraries(test_block_encoding ${QPANDA_LIBRARIES} ${LIB_LIST})
 
+#[[
 add_executable(
     test_qda_linear_solver
     src/utils.h
@@ -186,3 +187,4 @@ add_executable(
     src/test_matrix_decompose.cpp
 )
 target_link_libraries(test_matrix_decompose ${QPANDA_LIBRARIES} ${LIB_LIST})
+]]

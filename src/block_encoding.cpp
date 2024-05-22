@@ -5,6 +5,15 @@
 #include "block_encoding.h"
 #include "utils.h"
 
+MatrixXcd matrix_normalize(MatrixXcd &A) {
+  MatrixXcd AAt = A * A.adjoint();
+  MatrixXcd AtA = A.adjoint() * A;
+  auto norm_AAt = AAt.cwiseAbs().maxCoeff();
+  auto norm_AtA = AtA.cwiseAbs().maxCoeff();
+  auto norm = norm_AAt > norm_AtA ? norm_AAt : norm_AtA;
+  return norm > 1 ? (A / norm) : A;
+}
+
 inline bool check_spectral_norm(MatrixXcd &A) {
   float norm = spectral_norm(A);
   if (norm > 1) throw domain_error("A must satisfy ||A||2 <= 1");
@@ -21,6 +30,7 @@ bool check_block_encoding(block_encoding_res &res, MatrixXcd &A, float eps=1e-5)
 // Accepting arbitary square or non-sqaure matrix
 block_encoding_res block_encoding_QSVT(MatrixXcd A) {
   if (is_unitary(A)) return block_encoding_res(A);
+  A = matrix_normalize(A);
   check_spectral_norm(A);
 
   // https://pennylane.ai/qml/demos/tutorial_intro_qsvt/

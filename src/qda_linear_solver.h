@@ -6,14 +6,8 @@
 using namespace std;
 using namespace Eigen;
 
-struct linear_solver_res {
-  VectorXcd state;
-  VectorXcd state_phi;
-  linear_solver_res() {}
-  linear_solver_res(VectorXcd state, VectorXcd state_phi): state(state), state_phi(state_phi) {}
-};
-
-linear_solver_res linear_solver_naive(MatrixXcd A, VectorXcd b);
+VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b);
+VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b);
 
 
 // ↓↓ keep signature for the contest solution
