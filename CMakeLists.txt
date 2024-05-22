@@ -180,3 +180,9 @@ add_executable(
     src/qda_linear_solver_test.cpp
 )
 target_link_libraries(test_qda_linear_solver ${QPANDA_LIBRARIES} ${LIB_LIST})
+
+add_executable(
+    test_matrix_decompose
+    src/test_matrix_decompose.cpp
+)
+target_link_libraries(test_matrix_decompose ${QPANDA_LIBRARIES} ${LIB_LIST})
