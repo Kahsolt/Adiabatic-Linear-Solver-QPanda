@@ -2,8 +2,13 @@
 # Author: Armit
 # Create Time: 2024/05/16
 
+from pathlib import Path
+
 import numpy as np
 from numpy import ndarray
+
+BASE_PATH = Path(__file__).parent.parent
+IMG_PATH = BASE_PATH / 'img' ; IMG_PATH.mkdir(exist_ok=True)
 
 ''' Const '''
 
@@ -97,7 +102,7 @@ def condition_number(A:ndarray) -> float:
 
 def print_matrix(A:ndarray, name:str='A'):
   if len(A.shape) == 2 and min(A.shape) > 1:
-    print(f'{name}: (norm={spectral_norm(A):.4f}, κ={condition_number(A):.4f}, shape={A.shape})')
+    print(f'{name}: (norm={spectral_norm(A):.4g}, κ={condition_number(A):.4g}, shape={A.shape})')
   else:
-    print(f'{name}: (norm={np.linalg.norm(A):.4f}, shape={A.shape})')
+    print(f'{name}: (norm={np.linalg.norm(A):.4g}, shape={A.shape})')
   print(A.round(4))
