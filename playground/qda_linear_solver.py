@@ -227,14 +227,14 @@ def arXiv_1909_05500_AQC():
       T_ref = κ * np.log(κ) / ε
     elif sched == 'exp':    # near Eq. 9
       T_ref = κ * np.log(κ)**2 * np.log(np.log(κ) / ε)**4
-    T = int(T_ref)          # 每一步演化的物理时间 (这是一个神秘的超参，过大过小都会直接结果不对！！)
+    T = int(T_ref)          # 总演化的物理时间 (这是一个神秘的超参，过大过小都会直接结果不对！！)
     print(f'T: {T} (ref: {T_ref})')
-    M = 1000                # 手工指定迭代次数 ~O(κ^2)，越大精度越高
-    h = 1 / M               # 用于放缩 T 的步长 (这是一个神秘的超参，过大过小都会直接结果不对！！)
-    for m in range(1, M+1):
-      sm = m * h
-      U_H = expm(-1j*T*h*H_s(sm))
-      qs = U_H @ qs
+    S = 1000                # 手工指定迭代次数 ~O(κ^2)，越大精度越高
+    h = 1 / S               # 每步演化的物理时间 (这是一个神秘的超参，过大过小都会直接结果不对！！)
+    for s in range(S):
+      H = H_s(s / S)        # NOTE: 此处直接模拟哈密顿量的和，暂不用 trotter 分解
+      U_iHt = expm(-1j*H*(T*h))
+      qs = U_iHt @ qs
     # 读出末态: |ψ_T(1)> = |\tilde{x}>, 解出 |x>
     print('final state:', qs.T[0].round(4))
     fidelity = x_ref.conj().T @ qs

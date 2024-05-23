@@ -21,7 +21,7 @@
    - exp(-iZt) = X Rz(-t) X Rz(t)
 - 绝热演化[3,4]: 系统的哈密顿量从 H0 缓慢演化到 H1，若系统初态恰为 H0 的第k本征态，则最终会演化到 H1 的第k本征态
   - 系统的含时哈密顿量可近似为线性插值: H(s) = (1 - s) * H0 + s * H1, s: 0 -> 1
-  - 离散绝热演化: Trotter 分解可以把一个 exp(-iTH) 分解成 Πt exp(-i(t/T)H)
+  - 离散绝热演化: Trotter 分解可以把哈密顿量的和 exp(-iT(H0+H1)) 分解成小片的积 Πt exp(-i(t/T)H0)exp(-i(t/T)H1)
 ref: 
 - [1] https://zhuanlan.zhihu.com/p/150292241
 - [2] https://zhuanlan.zhihu.com/p/529720555
@@ -69,11 +69,13 @@ def block_encode(A:ndarray) -> ndarray:
 
 # hprams
 H_s_method = 'AQC'
-f_s_method = 'poly'
+f_s_method = 'linear'
 f_s_p = 2.0
 use_approx = True
-S = 200
-T = 10
+# NOTE: 这里 S*T 是真实物理时长，要保证其积足够大 (缓慢演化)
+# 且条件允许的情况下，演化步数 S 应该尽可能大，而每步演化时间 T 应该尽可能小
+S = 200   # 演化步数 (根据赛题要求固定)
+T = 10    # 每步演化时长
 
 if H_s_method == 'RM':
   A_s = lambda s: (1 - s) * np.kron(σz, I_(nq)) + s * np.kron(σx, A)
@@ -94,8 +96,6 @@ elif H_s_method == 'AQC':
   Qb = I_(nq) - b @ b.conj().T
   H0 = np.kron(σx, Qb)
   H1 = np.kron(σp, A @ Qb) + np.kron(σm, Qb @ A)
-  print_matrix(H0, 'H0')
-  print_matrix(H1, 'H1')
   H_s = lambda s: (1 - f(s)) * H0 + f(s) * H1
   init_qs = np.kron(v0, b)
   final_qs = np.kron(v0, x)
@@ -126,7 +126,7 @@ def run(S:int, T:int, log:bool=True) -> float:
   if log: print('init state:', qs.T[0].round(4))
   # 绝热演化
   for s in range(S):
-    H = H_s(s / S)
+    H = H_s(s / S)  # NOTE: 此处直接模拟哈密顿量的和，暂不用 trotter 分解
     if use_approx:
       exp_iHt = exp_iHt_approx(H, T)
       U_iHt = block_encode(exp_iHt)
