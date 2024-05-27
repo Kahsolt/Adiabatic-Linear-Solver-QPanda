@@ -278,6 +278,10 @@ print()
 
 '''
 [Eigenvalue Filtering]
+1. 先用 AQC(p) 跑出来一个近似解 |\hat{x0}> = \gamma_0 |0,x> + \gamma_1 |1,b> + |⊥>
+2. 纯线性代数的思路，乘上一个矩阵进行过滤 R_l(H1/d; 1/(dk)) |\hat{x0}> 将会去除无关成分 |⊥>
+  - R_l(x,Δ) 是一个标量函数，如何定义它的矩阵版本 R_l(H,Δ)? element-wise??
+3. 对第一辅助比特进行测量，将有 \gamma_0^2 概率去除误差成分 |1,b> 而得到目标 |0,x>
 '''
 def arXiv_1910_14596_EF():
   print('[EF(AQC)] O(κlog(1/ε))')
@@ -305,6 +309,7 @@ def arXiv_1910_14596_EF():
 
 '''
 [Quantum Discrete Adiabatic]
+1. 纯线性代数的思路，先 QWalk 到一个近似解，再 Eigen-Filter
 '''
 def arXiv_2111_08152_QDA():
   # Eq.114, the AQC(P) borrowed from arXiv:1909.05500

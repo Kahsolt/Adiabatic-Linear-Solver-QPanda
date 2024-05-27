@@ -6,19 +6,19 @@
 
 '''
 第二问的比赛要求有如下限制或提示：
- - 代码中 Block-Encoding 的实现与第一问中一致，使用 QPanda 的 matrix_decompose() 接口
- - 参考文献 arXiv:1909.05500 中的调度函数 f(s) 和含时哈密顿量 H(s) 的构造方法，选取 f(s) = s, s ∈ [0, 1], Δs = 1/200
- - 使用一阶近似 exp(-iH) ≈ I - iH
- - 基于 QPanda 实现离散绝热线性求解器，输出 |x> 和 <x_r|x>
+  - 代码中 Block-Encoding 的实现与第一问中一致，使用 QPanda 的 matrix_decompose() 接口
+  - 参考文献 arXiv:1909.05500 中的调度函数 f(s) 和含时哈密顿量 H(s) 的构造方法，选取 f(s) = s, s ∈ [0, 1], Δs = 1/200
+  - 使用一阶近似 exp(-iH) ≈ I - iH
+  - 基于 QPanda 实现离散绝热线性求解器，输出 |x> 和 <x_r|x>
 这使得好像出题方看起来并不是要求选手去实现论文中的那些经典方法，我们根据这些限制来重新评估所暗示的解决方案!!
 
 - 哈密顿量模拟[1,2]: 若系统的哈密顿量为不含时的 H，则初态 |ψ(0)> 经过时间 t 后会自然演化为 |ψ(t)>
- - |ψ(t)> = exp(-iHt) |ψ(0)>
- - Pauli 算符的指数化线路[1] (根据矩阵形式硬凑出来的)
-   - exp(-iIt) = Rz(-t) X Rz(-t) X
-   - exp(-iXt) = H Rz(-t) X Rz(t) X H
-   - exp(-iYt) = Rx(pi/2) X Rz(-t) X Rz(t) Rx(-pi/2)
-   - exp(-iZt) = X Rz(-t) X Rz(t)
+  - |ψ(t)> = exp(-iHt) |ψ(0)>
+  - Pauli 算符的指数化线路[1] (根据矩阵形式硬凑出来的)
+    - exp(-iIt) = Rz(-t) X Rz(-t) X
+    - exp(-iXt) = H Rz(-t) X Rz(t) X H
+    - exp(-iYt) = Rx(pi/2) X Rz(-t) X Rz(t) Rx(-pi/2)
+    - exp(-iZt) = X Rz(-t) X Rz(t)
 - 绝热演化[3,4]: 系统的哈密顿量从 H0 缓慢演化到 H1，若系统初态恰为 H0 的第k本征态，则最终会演化到 H1 的第k本征态
   - 系统的含时哈密顿量可近似为线性插值: H(s) = (1 - s) * H0 + s * H1, s: 0 -> 1
   - 离散绝热演化: Trotter 分解可以把哈密顿量的和 exp(-iT(H0+H1)) 分解成小片的积 Πt exp(-i(t/T)H0)exp(-i(t/T)H1)
@@ -28,17 +28,20 @@ ref:
 - [3] https://zhuanlan.zhihu.com/p/24086259
 - [4] https://www.cnblogs.com/dechinphy/p/annealer.html
 根据以上不难得出解决方案：
- 0. 规范化所求线性方程组 A * x = b 右端
- 1. 将系统初态制备为 |b>
- 2. 进行从 H0 到 H1 的离散绝热演化
-   - 精确设计哈密顿量 H0 和 H1，使得 |b> 是 H0 的一个本征态
-   - 确定调度函数 f(s) = s, 构造含时哈密顿量 H(s) = (1 - s) * H0 + s * H1
-   - 进行 S=200 步的演化，第 s 步使用哈密顿量 H(s) 演化恰当时长 T=1 (?)
-     - 标准方案即用酉矩阵 exp(-iH(s)) 进行演化 (QPanda 提供了用于直接数学模拟的 expMat，但未提供 TimeEvolution 量子线路)
-     - 但按题目要求，需要使用一阶近似 exp(-iH) ≈ I - iH 取代该酉矩阵进行演化
-     - 由于近似矩阵 I - iH 非酉，进一步使用其 BlockEncoding 形式来进行演化
- 3. 读出末态 |x>
- 4. 计算保真度
+  0. 规范化所求线性方程组 A * x = b 右端
+  1. 将系统初态制备为 |b>
+  2. 进行从 H0 到 H1 的离散绝热演化
+    - 精确设计哈密顿量 H0 和 H1，使得 |b> 是 H0 的一个本征态/零空间
+    - 确定调度函数 f(s) = s, 构造含时哈密顿量 H(s) = (1 - s) * H0 + s * H1
+    - 进行 S=200 步的演化，第 s 步使用哈密顿量 H(s) 演化恰当时长 T=1 (?)
+      - 标准方案即用酉矩阵 exp(-iH(s)t) 进行演化 (QPanda 提供了用于直接数学模拟的 expMat，但未提供 TimeEvolution 量子线路)
+      - 但按题目要求，需要使用一阶近似 TE = exp(-iHt) ≈ I - iHt = \hat{TE} 取代该酉矩阵进行演化
+      - 由于近似矩阵 \hat{TE} 非酉，需要进一步使用其 BlockEncoding 形式来进行演化；选型思考最后决定用 QSVT 作答
+        - QSVT 方案不保证任意输入都可用多项式个门高效地实现，比赛要求"可用量子线路实现" (但好像没要求高效?)
+        - LCU 方案暂时不支持复数矩阵 (QPanda 接口暂时不能分解 Pauli-Y)
+        - ARCSIN/FABLE 方案要求矩阵元素 |a_{i,j}| \leq 1，该方案大概也是比赛所暗示的标准解答思路，但 \hat{TE} 值域是无界的
+  3. 读出末态 |x>
+  4. 计算保真度
 '''
 
 from functools import partial

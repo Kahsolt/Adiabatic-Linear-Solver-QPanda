@@ -44,14 +44,23 @@ This is the demo run:
 
 ⚪ adiabetic-inspired linear system solver
 
-| Method | encode carrier | sched func $ f(s) $ | complexity |
-| :-: | :-: | :-: | :-: |
-| [RM (algo-1)](https://arxiv.org/abs/1805.10549) | eigen     | $ f(s) = s $       | $ \mathcal{O}(\kappa^2 \mathrm{log}(\kappa) / \epsilon) $                                    |
-| [RM (algo-2)](https://arxiv.org/abs/1805.10549) | eigen     | $ f(s) = s $       | $ \mathcal{O}(\kappa \mathrm{log}(\kappa) / \epsilon) $                                      |
-| [vanilla AQC](https://arxiv.org/abs/1909.05500) | nullspace | $ f(s) = s $       | $ \mathcal{O}(\kappa^3 / \epsilon) $                                                         |
-| [AQC(P)](https://arxiv.org/abs/1909.05500)      | nullspace | $ f(s) = poly(s) $ | $ \mathcal{O}(\kappa / \epsilon) \sim \mathcal{O}(\kappa \mathrm{log}(\kappa) / \epsilon) $  |
-| [AQC(EXP)](https://arxiv.org/abs/1909.05500)    | nullspace | $ f(s) = exp(s) $  | $ \mathcal{O}(\kappa \mathrm{log}^2(\kappa) \mathrm{log}^4(\mathrm{log}(\kappa)/\epsilon)) $ |
-| [QDA](https://arxiv.org/abs/2111.08152) (not implemented) | eigen | $ f(s) = poly(s) $ | $ \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $                                     |
+| Method | sched func $ f(s) $ | time complexity | query complexity (EF paper listed) | query complexity (QDA paper listed) |
+| :-: | :-: | :-: | :-: | :-: |
+| [RM (algo-1)](https://arxiv.org/abs/1805.10549) | $ \mathrm{linear} $ | $ \mathcal{O}(\kappa^2 \mathrm{log}(\kappa) / \epsilon) $ | $ \mathcal{O}(\kappa / \epsilon) $ |  |
+| [RM (algo-2)](https://arxiv.org/abs/1805.10549) | $ \mathrm{linear} $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa) / \epsilon) $ | $ \mathcal{O}(\kappa / \epsilon) $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa) / \epsilon) $ |
+| [vanilla AQC](https://arxiv.org/abs/1909.05500) | $ \mathrm{linear} $ | $ \mathcal{O}(\kappa^3 / \epsilon) $ | $ \mathcal{O}(\kappa^2 / \epsilon) $ |  |
+| [AQC(P)](https://arxiv.org/abs/1909.05500)      | $ \mathrm{poly} $ | $ \mathcal{O}(\kappa / \epsilon) \sim \mathcal{O}(\kappa \mathrm{log}(\kappa) / \epsilon) $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa) \mathrm{loglog}(\kappa)) $ for $ \mathcal{O}(1) $ precision |  |
+| [AQC(EXP)](https://arxiv.org/abs/1909.05500)    | $ \mathrm{exp} $  | $ \mathcal{O}(\kappa \mathrm{log}^2(\kappa) \mathrm{log}^4(\mathrm{log}(\kappa)/\epsilon)) $ | $ \mathcal{O}(\kappa \mathrm{polylog}(1 / \epsilon)) $ | $ \mathcal{O}(\kappa \mathrm{polylog}(\kappa / \epsilon)) $ |
+| [EF](https://arxiv.org/abs/1910.14596) (not implemented)  | $ \mathrm{poly} $ |  | $ \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa / \epsilon)) $ |
+| [QDA](https://arxiv.org/abs/2111.08152) (not implemented) | $ \mathrm{poly} $ |  |  | $ \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $ |
+
+ℹ Note that $ \mathcal{\Omega}(\kappa \mathrm{log}(1 / \epsilon)) $ is the theoretical lower bound for sparse QLSP
+
+> Obviously there is an argument between QDA and EF, that EF overlooked a factor by $ \mathrm{log}(k) $? 🤔
+> - EF := AQC(P) + EF = $ \mathcal{O}(\kappa \mathrm{log}(\kappa) \mathrm{loglog}(\kappa)) + \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $
+> - QDA := QWalk + EF = $ \mathcal{O}(\kappa) + \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $
+>
+> OK then, QDA might be right: EF forgot to count for its AQC(p) part
 
 
 ### references

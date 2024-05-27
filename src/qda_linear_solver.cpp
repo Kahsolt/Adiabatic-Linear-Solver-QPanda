@@ -37,7 +37,7 @@ inline MatrixXcd exp_iHt_approx(MatrixXcd H, float t=1.0) {
 }
 
 
-// A ideal and simple QDA implementation
+// The ideal yet naive QDA implementation
 VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b) {
   init_consts();
 
@@ -50,8 +50,8 @@ VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b) {
   VectorXd init_state = kroneckerProduct(v0, b).real();  // |0,b>
 
   // gated quantum computing
-  const int S = 200;
-  const int T = 10;
+  const int S = 200;    // premise 1: adequate stage count
+  const int T = 10;     // premise 2: adequate physical time during each stage
   const size_t n_qubit = ceil(log2(H0.rows()));
   CPUQVM qvm;
   qvm.setConfigure({n_qubit, n_qubit});
@@ -60,12 +60,12 @@ VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b) {
   QCircuit qcir;
   // init state
   vector<double> amplitude(init_state.data(), init_state.data() + init_state.size());
-  qcir << amplitude_encode(qv, amplitude);
+  qcir << amplitude_encode(qv, amplitude);  // premise 3: correct initial state preparation
   // adiabetic evolution
   for (int s = 0; s < S; s++) {
-    MatrixXcd H = H_s(float(s) / S);
+    MatrixXcd H = H_s(float(s) / S);  // premise 4: ideal time-independent hamiltonion schedule
     MatrixXcd iHt = dcomplex(0, -1) * H * T;
-    QMatrixXcd U_iHt = iHt.exp();
+    QMatrixXcd U_iHt = iHt.exp();     // premise 5: ideal time evolution operator
     QCircuit qc_TE = matrix_decompose_qr(qv, U_iHt, false);  // NOTE: must keep false here
     qcir << qc_TE << BARRIER(qv);
   }
@@ -75,13 +75,13 @@ VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b) {
   QStat qs = qvm.getQState();
 
   // result
-  qs = QStat(qs.begin(), qs.begin() + 2);  // project only the firt qubit
+  qs = QStat(qs.begin(), qs.begin() + 2);  // project only the first qubit
   VectorXcd state = Map<VectorXcd>(qs.data(), qs.size());
-  return state;
+  return state / state.norm();  // re-norm
 }
 
 
-// The basic implementation strictly follows all contest-specified restrictions :)
+// The basic implementation strictly follows all contest-specified restrictions (?
 VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b) {
   init_consts();
 
@@ -90,32 +90,46 @@ VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b) {
   MatrixXcd Qb = MatrixXcd::Identity(N, N) - b * b.adjoint();
   MatrixXcd H0 = kroneckerProduct(PauliX, Qb);
   MatrixXcd H1 = kroneckerProduct(PauliP, A * Qb) + kroneckerProduct(PauliM, Qb * A);
-  auto H_s = [&](float s) -> MatrixXcd { return (1 - s) * H0 + s * H1; };
   VectorXcd init_state = kroneckerProduct(v0, b);
-
+  /* naive AQC
+  auto H_s = [&](float s) -> MatrixXcd { return (1 - s) * H0 + s * H1; };
+  */
+  /* AQC(P) */
+  float k = 5.82842712474619;   // condition_number of the original A
+  float p = 2.0;
+  auto f_ = [&](float s) -> float {
+    float t = 1 + s * (pow(k, p - 1) - 1);
+    return k / (k - 1) * (1 - pow(t, 1 / (1 - p)));
+  };
+  auto H_s = [&](float s) -> MatrixXcd {
+    float f_s = f_(s);
+    return (1 - f_s) * H0 + f_s * H1;
+  };
+  
   // gated quantum computing
-  const int S = 200;
-  const int T = 10;
-  const size_t n_qubit = ceil(log2(H0.rows()));
-  const size_t n_ancilla = 1;   // TODO: modify this
+  const int S = 200;    // restrict 1: fixed as contest required
+  const int T = 10;     // restrict 2: fixed as contest required (?)
+  const size_t n_qubit = ceil(log2(H0.rows()));   // since we're going to block-encode the hamiltonion H(s), not the matrix A in equation
+  const size_t n_ancilla = 1;   // NOTE: modify this according to your block_encode method :)
   const size_t n_qubit_ex = n_ancilla + n_qubit;
+  const float lmbd = pow(2, N);
   CPUQVM qvm;
   qvm.setConfigure({n_qubit_ex, n_qubit_ex});
   qvm.init();
   QVec qv = qvm.qAllocMany(n_qubit_ex);
   QCircuit qcir;
   // init state
-  auto anc0 = v0;
-  for (int i = 1; i < n_ancilla; i++) anc0 = kroneckerProduct(anc0, v0);
+  VectorXcd anc0 = v0;
+  for (int i = 1; i < n_ancilla; i++) anc0 = kroneckerProduct(anc0, v0).eval();   // NOTE: avoid aliasing effect
   VectorXd init_state_ex = kroneckerProduct(anc0, init_state).real();
   vector<double> amplitude(init_state_ex.data(), init_state_ex.data() + init_state_ex.size());
   qcir << amplitude_encode(qv, amplitude);   // |anc_BE,0,b>
   // adiabetic evolution
   for (int s = 0; s < S; s++) {
     MatrixXcd H = H_s((float)s / S);
-    MatrixXcd iHt = exp_iHt_approx(H, T);
-    auto res = block_encoding_QSVT(iHt);
-    QMatrixXcd U_iHt = res.unitary;
+    MatrixXcd iHt = exp_iHt_approx(H, T);   // restrict 3: approx as contest required
+    iHt = normalize_QSVT(iHt);
+    QMatrixXcd U_iHt = block_encoding_QSVT(iHt).unitary;  // restrict 4: block_encode as contest required, and as consequence of approx
     QCircuit qc_TE = matrix_decompose_qr(qv, U_iHt, false);  // NOTE: must keep false here
     qcir << qc_TE << BARRIER(qv);
   }
@@ -125,9 +139,9 @@ VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b) {
   QStat qs = qvm.getQState();
 
   // result
-  qs = QStat(qs.begin(), qs.begin() + 2);  // project only the firt qubit
+  qs = QStat(qs.begin(), qs.begin() + 2);  // project only the first qubit
   VectorXcd state = Map<VectorXcd>(qs.data(), qs.size());
-  return state;
+  return state / state.norm();  // re-norm
 }
 
 
