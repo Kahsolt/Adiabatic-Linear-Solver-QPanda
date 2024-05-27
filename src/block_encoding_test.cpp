@@ -82,6 +82,33 @@ test_res test_block_encoding_LCU(int k, int T=1000) {
   return {float(ok) / T, ts_to_ms(ts / T)};
 }
 
+test_res test_block_encoding_ARCSIN(int d, int T=1000) {
+  int ok = 0;
+  clock_t ts = 0;
+  for (int i = 0; i < T; i++) {
+    MatrixXcd A = MatrixXcd::Zero(2, 2);
+    vector<int> pos = { 0, 1, 2, 3 };
+    shuffle(pos.begin(), pos.end(), default_random_engine());
+    for (int j = 0; j < d; j++) {
+      dcomplex coeff = dcomplex(randu(), randu());
+      double norm = abs(coeff);
+      if (norm > 1) coeff /= (norm * 1.01);
+      switch (pos[j]) {
+        case 0: A(0, 0) = coeff; break;
+        case 1: A(0, 1) = coeff; break;
+        case 2: A(1, 0) = coeff; break;
+        case 3: A(1, 1) = coeff; break;
+      }
+    }
+    A = rescale_if_necessary(A);
+    clock_t s = clock();
+    auto res = block_encoding_ARCSIN(A);
+    ts += clock() - s;
+    if (check_block_encoding(res, A)) ok++;
+  }
+  return {float(ok) / T, ts_to_ms(ts / T)};
+}
+
 test_res test_block_encoding_FABLE(int d, int T=1000) {
   int ok = 0;
   clock_t ts = 0;
@@ -111,7 +138,13 @@ test_res test_block_encoding_FABLE(int d, int T=1000) {
 int main() {
   srand((unsigned)time(NULL)); 
   init_consts();
-
+/*
+  MatrixXcd A(2, 2);
+  A << dcomplex(0.1, 0.2), dcomplex(-0.3, 0.0),
+       dcomplex(0.0, 0.0), dcomplex(0.0, -0.4);
+  block_encoding_ARCSIN(A);
+  exit(0);
+*/
   int T = 1000;
   test_res res;
 
@@ -127,6 +160,12 @@ int main() {
   for (int k = 2; k <= 8; k++) {
     res = test_block_encoding_LCU(k, T);
     printf("  k = %d: pass %.2f %%, time %.3f ms\n", k, res.pass * 100, res.time);
+  }
+
+  puts("[test_block_encoding_ARCSIN]");
+  for (int d = 1; d <= 4; d++) {
+    res = test_block_encoding_ARCSIN(d, T);
+    printf("  d = %d: pass %.2f %%, time %.3f ms\n", d, res.pass * 100, res.time);
   }
 
   puts("[test_block_encoding_FABLE]");

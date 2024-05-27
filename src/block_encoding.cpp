@@ -5,20 +5,6 @@
 #include "block_encoding.h"
 #include "utils.h"
 
-MatrixXcd matrix_normalize(MatrixXcd &A) {
-  MatrixXcd AAt = A * A.adjoint();
-  MatrixXcd AtA = A.adjoint() * A;
-  auto norm_AAt = AAt.cwiseAbs().maxCoeff();
-  auto norm_AtA = AtA.cwiseAbs().maxCoeff();
-  auto norm = norm_AAt > norm_AtA ? norm_AAt : norm_AtA;
-  return norm > 1 ? (A / norm) : A;
-}
-
-inline bool check_spectral_norm(MatrixXcd &A) {
-  float norm = spectral_norm(A);
-  if (norm > 1) throw domain_error("A must satisfy ||A||2 <= 1");
-}
-
 bool check_block_encoding(block_encoding_res &res, MatrixXcd &A, float eps=1e-5) {
   auto N = A.rows(), M = A.cols();
   auto block = res.unitary.block(0, 0, N, M) / res.subfactor;
@@ -29,9 +15,7 @@ bool check_block_encoding(block_encoding_res &res, MatrixXcd &A, float eps=1e-5)
 // Block-Encoding via QSVT-like direct construction from arXiv:2203.10236 Eq. 3.4
 // Accepting arbitary square or non-sqaure matrix
 block_encoding_res block_encoding_QSVT(MatrixXcd A) {
-  if (is_unitary(A)) return block_encoding_res(A);
-  A = matrix_normalize(A);
-  check_spectral_norm(A);
+  if (spectral_norm(A) > 1) throw domain_error("A must satisfy ||A||2 <= 1");
 
   // https://pennylane.ai/qml/demos/tutorial_intro_qsvt/
   int N = A.rows(), M = A.cols();
@@ -47,14 +31,13 @@ block_encoding_res block_encoding_QSVT(MatrixXcd A) {
 // Block-Encoding via QSVT-like direct construction for 2x2 real symmetric matrix special case, refer to arXiv:2203.10236 Eq. 3.6
 // Accepting 2x2 real symmetric matrix
 block_encoding_res block_encoding_QSVT0(MatrixXcd A) {
-  if (is_unitary(A)) return block_encoding_res(A);
-  check_spectral_norm(A);
-  if (A.rows() != A.cols()) throw domain_error("A is not square");
+  if (!is_square(A)) throw domain_error("A is not square");
   if (A.rows() != 2) throw domain_error("A is not 2x2 shape");
-  const float eps = 1e-8;
-  if (A.imag().cwiseAbs().maxCoeff() > eps) throw domain_error("A is not real");
+  if (!is_real(A)) throw domain_error("A is not real");
+  if (spectral_norm(A) > 1) throw domain_error("A must satisfy ||A||2 <= 1");
   auto p = A(0, 0), q = A(0, 1),
        r = A(1, 0), s = A(1, 1);
+  const float eps = 1e-8;
   if (abs(p - s) > eps) throw domain_error("A is not symmetric along main diagonal");
   if (abs(q - r) > eps) throw domain_error("A is not symmetric along sub diagonal");
 
@@ -80,14 +63,12 @@ block_encoding_res block_encoding_QSVT0(MatrixXcd A) {
 // Block-Encoding via linear combination of unitaries method from arXiv:1501.01715
 // Accepting square matrix, decomposable to a linear combination of unitaries
 block_encoding_res block_encoding_LCU(MatrixXcd A, float eps=1e-8) {
-  if (is_unitary(A)) return block_encoding_res(A);
-  check_spectral_norm(A);
-  if (A.rows() != A.cols()) throw domain_error("A is not square");
-  if (A.rows() != 2) throw domain_error("A shape is not 2x2, currently only support 2x2 matrix");
-  int N = A.rows();
-  if (N & (N - 1) != 0) throw domain_error("A shape is not power of 2");
+  if (A.rows() != 2) throw domain_error("A is not 2x2 shape, currently only support 2x2 matrix");
+  if (!is_shape_pow2(A)) throw domain_error("A shape is not power of 2");
+  if (!is_real(A)) throw domain_error("A is not real, currently only support real matrix");
 
   // matrix to LCU
+  int N = A.rows();
   EigenMatrixX matrix = A.real();
   PauliOperator ops = matrix_decompose_hamiltonian(matrix);
   vector<float> coeffs;
@@ -161,6 +142,88 @@ block_encoding_res block_encoding_LCU(MatrixXcd A, float eps=1e-8) {
 }
 
 
+// Block-Encoding via ARCSIN method from arXiv:2402.17529
+// Accepting d-sparse square matrix with |a_ij| <= 1
+block_encoding_res block_encoding_ARCSIN(MatrixXcd A, float eps=1e-8) {
+  if (!is_shape_pow2(A)) throw domain_error("A shape is not power of 2");
+  if (!is_elem_norm(A)) throw domain_error("A elememnts must st. |a_ij| <= 1");
+
+  // build circuit
+  // 1. decide system size
+  int N = A.rows(), M = A.cols();
+  size_t n_qubit = ceil(log2(N));
+  size_t n_qubit_ex = 1 + n_qubit * 2;
+  CPUQVM qvm;
+  qvm.setConfigure({n_qubit_ex, n_qubit_ex});
+  qvm.init();
+  // |c0,...,cn;r0,...,rm;a>, mind the fucking order!! :(
+  QVec qv = qvm.qAllocMany(n_qubit_ex);
+  QVec qv_col = QVec(qv.begin(), qv.begin() + n_qubit);
+  QVec qv_row = QVec(qv.begin() + n_qubit, qv.begin() + 2 * n_qubit);
+  QVec qv_mctrl = QVec(qv.begin(), qv.end() - 1);
+  Qubit* q_anc = qv[qv.size() - 1];
+  // 2. make oracle O_A
+  MatrixXd thetas = A.array().abs().asin().matrix();
+  MatrixXd phis = A.array().arg().matrix();
+  QCircuit O_A;
+  for (int i = 0; i < N; i++) {
+    for (int j = 0; j < M; j++) {
+      float t = 2 * thetas(i, j);
+      float p = 2 * phis(i, j);
+      if (abs(t) < eps && abs(p) < eps) continue;
+
+      // cond
+      QCircuit cond;
+      int loc = i;
+      for (auto q_r : qv_row) {
+        if (loc % 2 == 0) cond << X(q_r);
+        loc /= 2;
+      }
+      loc = j;
+      for (auto q_c : qv_col) {
+        if (loc % 2 == 0) cond << X(q_c);
+        loc /= 2;
+      }
+      // mctrl-rot
+      QCircuit mcrot_circ;
+      if (abs(t) > eps) mcrot_circ << RY(q_anc, t).control(qv_mctrl);
+      if (abs(p) > eps) mcrot_circ << RZ(q_anc, p).control(qv_mctrl);
+      // combine one layer
+      O_A << cond << mcrot_circ << cond << BARRIER(qv);
+    }
+  }
+  // 3. make H, SWAP and flip-X
+  QCircuit H_circ;
+  for (auto q : qv_row) H_circ << H(q);
+  QCircuit SWAP_circ;
+  for (int k = 0; k < qv_row.size(); k++) SWAP_circ << SWAP(qv_row[k], qv_col[k]);
+  SWAP_circ << X(q_anc);
+  // 4. build total circuit
+  QCircuit qcir = createEmptyCircuit() << H_circ << BARRIER(qv) << O_A << BARRIER(qv) << SWAP_circ << BARRIER(qv) << H_circ;
+
+  // QCircuit to matrix: 穷举制备每个基态，逐列投影出线路所对应的矩阵
+  // XXX: getCircuitMatrix() does NOT work for this, IDK why :(
+  int N_ex = pow(2, n_qubit_ex);
+  MatrixXcd U_A(N_ex, N_ex);
+  for (int i = 0; i < N_ex; i++) {
+    int r = i;
+    QCircuit cond;
+    for (int j = 0; j < n_qubit_ex; j++) {
+      if (r % 2 == 1) cond << X(qv[j]);
+      r /= 2;
+    }
+    QProg qprog = createEmptyQProg() << cond << qcir;
+    qvm.directlyRun(qprog);
+    QStat qs = qvm.getQState();
+    for (int j = 0; j < N_ex; j++) 
+      U_A(j, i) = qs[j];
+  }
+  qvm.finalize();
+
+  return block_encoding_res(U_A, 1 / float(N), qcir);
+}
+
+
 // Block-Encoding via FABLE method from arXiv:2205.00081
 // Accepting d-sparse square matrix with |a_ij| <= 1
 // @impl translated from https://github.com/PennyLaneAI/pennylane/blob/master/pennylane/templates/subroutines/fable.py
@@ -201,16 +264,13 @@ vector<int> block_encoding_FABLE_gray_code(int rank) {
 }
 
 block_encoding_res block_encoding_FABLE(MatrixXcd A, float eps=1e-8) {
-  if (is_unitary(A)) return block_encoding_res(A);
-  check_spectral_norm(A);
-  if (A.imag().cwiseAbs().maxCoeff() > 1e-8) throw domain_error("A is not real");
-  if (A.cwiseAbs().maxCoeff() > 1) throw domain_error("A elememnts must st. |a_ij| <= 1");
-  if (A.rows() != A.cols()) throw domain_error("A is not square");
-  int N = A.rows();
-  if (N & (N - 1) != 0) throw domain_error("A shape is not power of 2, currently not support auto padding");
+  if (!is_shape_pow2(A)) throw domain_error("A shape is not power of 2");
+  if (!is_real(A)) throw domain_error("A is not real");
+  if (!is_elem_norm(A)) throw domain_error("A elememnts must st. |a_ij| <= 1");
 
   // build circuit
   // 1. decide system size
+  int N = A.rows();
   size_t n_qubit = ceil(log2(N));
   size_t n_qubit_ex = 1 + n_qubit * 2;
   CPUQVM qvm;
@@ -292,5 +352,13 @@ block_encoding_res block_encoding_FABLE(MatrixXcd A, float eps=1e-8) {
 
 // ↓↓ keep signature for the contest solution
 MatrixXcd block_encoding_method(MatrixXcd H) {
-  return block_encoding_FABLE(H).unitary;
+  if (!is_shape_pow2(H)) {  // auto expand shape
+    int N = H.rows(), M = H.cols();
+    int maxN = N > M ? N : M;
+    maxN = int(pow(ceil(log2(maxN)), 2));
+    MatrixXcd H_ex = MatrixXcd::Zero(maxN, maxN);
+    H_ex.block(0, 0, N, M) = H;
+    H = H_ex;
+  }
+  return block_encoding_ARCSIN(H).unitary;
 }

@@ -6,7 +6,7 @@ from typing import List
 import numpy as np
 from numpy import ndarray
 from pyqpanda import CPUQVM, QVec
-from pyqpanda import QCircuit, H, I, X, Y, Z, RY, CNOT, SWAP, BARRIER
+from pyqpanda import QCircuit, H, I, X, Y, Z, RY, RZ, CNOT, SWAP, BARRIER
 from pyqpanda import QProg, draw_qprog
 from pyqpanda import matrix_decompose_hamiltonian, amplitude_encode, Encode
 
@@ -27,12 +27,35 @@ PauliZ = np.asarray([
   [0, -1],
 ])
 
+def show_UA(A:ndarray, qvm:CPUQVM, qv:QVec, qcir:QCircuit, lmbd:float):
+  n_qubit_ex = len(qv)
+  N_ex = 2 ** n_qubit_ex
+  U_A = np.zeros([N_ex, N_ex], dtype=np.complex64)
+  for i in range(N_ex):
+    r = i
+    cond = QCircuit()
+    for j in range(n_qubit_ex):
+      if r & 1: cond << X(qv[j])
+      r >>= 1
+    qprog = QProg() << cond << BARRIER(qv) << qcir
+    qvm.directly_run(qprog)
+    qs = qvm.get_qstate()
+    U_A[:, i] = np.asarray(qs)
 
-def block_encoding_LCU() -> ndarray:
-  # PauliY is not supported by pyQPanda
-  A = 0.1 * PauliI + 0.2 * PauliX + 0.4 * PauliZ
-  #A = 0.774304 * PauliX
+  if np.abs(U_A.imag).max() < 1e-5:
+    U_A = U_A.real
+  N = A.shape[0]
+  U_A = U_A[:N, :N]
 
+  print('A:')
+  print(A.round(4))
+  print('U_A:')
+  print(U_A.round(4))
+  print('U_A * lmbd:')
+  print((U_A * lmbd).round(4))
+
+
+def block_encoding_LCU(A:ndarray) -> ndarray:
   ops = matrix_decompose_hamiltonian(A)
   print('LCU:', ops)
   coeffs = []
@@ -108,27 +131,97 @@ def block_encoding_LCU() -> ndarray:
   print(qcir)
   #draw_qprog(qcir, output='pic', filename='qcir.png')
 
-  N_ex = 2 ** n_qubit_ex
-  U_A = np.zeros([N_ex, N_ex])
-  for i in range(N_ex):
-    r = i
-    cond = QCircuit()
-    for j in range(n_qubit_ex):
-      if r & 1: cond << X(qv[j])
-      r >>= 1
-    qprog = QProg() << cond << qcir
-    qvm.directly_run(qprog)
-    qs = qvm.get_qstate()
-    U_A[:, i] = np.asarray(qs).real
+  show_UA(A, qvm, qv, qcir, lmbd)
 
-  print('A:')
-  print(A.round(4))
-  print('U_A:')
-  print(U_A.round(4))
-  print('U_A * lmbd:')
-  print((U_A * lmbd).round(4))
+print('[block_encoding_LCU]')
+# PauliY is not supported by pyQPanda
+A = 0.1 * PauliI + 0.2 * PauliX + 0.4 * PauliZ
+block_encoding_LCU(A)
+print()
 
-block_encoding_LCU()
+
+def block_encoding_ARCSIN(A:ndarray, tol:float=1e-5) -> ndarray:
+  ''' arxiv:2402.17529, the basis QUERY-ORACLE framework of FABLE '''
+  N_ROW, N_COL = A.shape
+  nq_row = int(np.ceil(np.log2(N_ROW)))
+  nq_col = int(np.ceil(np.log2(N_COL)))
+  n_qubit = max(nq_row, nq_col)
+  n_qubit_ex = 1 + n_qubit * 2
+  print('n_qubit:', n_qubit)
+  print('n_qubit_ex:', n_qubit_ex)
+  lmbd = 2**n_qubit
+
+  qvm = CPUQVM()
+  qvm.init_qvm()
+  # |c0,...,cn;r0,...,rm;a>
+  qv = qvm.qAlloc_many(n_qubit_ex)
+  # Fig. 3 from arxiv:2402.17529, mind the fucking order!!
+  qv_col = qv[:n_qubit]
+  qv_row = qv[n_qubit:-1]
+  q_anc = qv[-1]
+  qv_mctrl = qv[:-1]
+  print('len(qv_row):', len(qv_row))
+  print('len(qv_col):', len(qv_col))
+  print('len(qv_mctrl):', len(qv_mctrl))
+
+  # Eq. 15 & 16 from arxiv:2205.00081, the basic "matrix query oracle" in FABLE essay
+  # a_{i,j} = |a_{i,j}| exp(i * \alpha_{i,j})
+  # \theta_{i,j} = arccos(|a_{i,j}|)
+  # \phi_{i,j} = -\alpha_{i,j}
+  # Eq. 6 from arxiv:2402.17529, here we use ARCSIN method for the real parts
+  thetas = np.arcsin(np.abs(A))
+  phis = np.angle(A)
+  print('thetas:', thetas)
+  print('phis:', phis)
+
+  qcir = QCircuit()
+  for q in qv_row: qcir << H(q)
+  qcir << BARRIER(qv)
+  for i in range(N_ROW):
+    for j in range(N_COL):
+      t = 2 * thetas[i, j]
+      p = 2 * phis  [i, j]
+      if abs(t) < tol and abs(p) < tol: continue
+
+      # cond
+      cond = QCircuit()
+      loc = i
+      for q_r in qv_row:
+        if loc & 1 == 0: cond << X(q_r)
+        loc >>= 1
+      loc = j
+      for q_c in qv_col:
+        if loc & 1 == 0: cond << X(q_c)
+        loc >>= 1
+      # mctrl-rot
+      mcrot_circ = QCircuit()
+      if abs(t) > tol: mcrot_circ << RY(q_anc, t).control(qv_mctrl)
+      if abs(p) > tol: mcrot_circ << RZ(q_anc, p).control(qv_mctrl)
+      # cond (uncompute)
+      qcir << cond << mcrot_circ << cond << BARRIER(qv)
+  for q_r, q_c in zip(qv_row, qv_col):
+    qcir << SWAP(q_r, q_c)
+  qcir << X(q_anc)    # ARCSIN flip ancilla
+  qcir << BARRIER(qv)
+  for q in qv_row: qcir << H(q)
+  print(qcir)
+
+  show_UA(A, qvm, qv, qcir, lmbd)
+
+print('[block_encoding_ARCSIN]')
+A = np.asarray([
+  [0.1+0.2j, -0.3],
+  [0, -0.4j],
+])
+'''
+A = np.asarray([
+  [0.1, -0.2j, -0.3, 0.4j],
+  [0.5, -0.6j, -0.7, 0.8j],
+  [0, 0, 0, 0],
+  [0, 0, 0, 0],
+])
+'''
+block_encoding_ARCSIN(A)
 print()
 
 
@@ -169,12 +262,7 @@ def block_encoding_FABLE_gray_code(rank:int) -> List[str]:
   gray_code_recurse(g, rank - 1)
   return g
 
-def block_encoding_FABLE(tol:float=1e-8) -> ndarray:
-  A = np.asarray([
-    [0.1, 0],
-    [-0.2, 0.3],
-  ])
-
+def block_encoding_FABLE(A:ndarray, tol:float=1e-8) -> ndarray:
   n_qubit = int(np.ceil(np.log2(A.shape[0])))
   n_qubit_ex = 1 + n_qubit * 2
   print('n_qubit:', n_qubit)
@@ -233,25 +321,13 @@ def block_encoding_FABLE(tol:float=1e-8) -> ndarray:
   for i in wires_i: qcir << H(qv[i])
   print(qcir)
 
-  N_ex = 2 ** n_qubit_ex
-  U_A = np.zeros([N_ex, N_ex])
-  for i in range(N_ex):
-    r = i
-    cond = QCircuit()
-    for j in range(n_qubit_ex):
-      if r & 1: cond << X(qv[j])
-      r >>= 1
-    qprog = QProg() << cond << qcir
-    qvm.directly_run(qprog)
-    qs = qvm.get_qstate()
-    U_A[:, i] = np.asarray(qs).real
+  show_UA(A, qvm, qv, qcir, lmbd)
 
-  print('A:')
-  print(A.round(4))
-  print('U_A:')
-  print(U_A.round(4))
-  print('U_A * lmbd:')
-  print((U_A * lmbd).round(4))
 
-block_encoding_FABLE()
+print('[block_encoding_FABLE]')
+A = np.asarray([
+  [0.1, 0],
+  [-0.2, 0.3],
+])
+block_encoding_FABLE(A)
 print()

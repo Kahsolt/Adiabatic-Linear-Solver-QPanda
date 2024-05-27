@@ -20,6 +20,7 @@ bool check_block_encoding(block_encoding_res &res, MatrixXcd &A, float eps=1e-5)
 block_encoding_res block_encoding_QSVT(MatrixXcd A);
 block_encoding_res block_encoding_QSVT0(MatrixXcd A);
 block_encoding_res block_encoding_LCU(MatrixXcd A, float eps=1e-8);
+block_encoding_res block_encoding_ARCSIN(MatrixXcd A, float eps=1e-8);
 block_encoding_res block_encoding_FABLE(MatrixXcd A, float eps=1e-8);
 
 

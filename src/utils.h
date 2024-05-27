@@ -9,10 +9,14 @@ using namespace Eigen;
 using namespace std;
 
 bool is_square(MatrixXcd &A);
+bool is_shape_pow2(MatrixXcd &A);
+bool is_real(MatrixXcd &A);
+bool is_elem_norm(MatrixXcd &A);
 bool is_posdef(MatrixXcd &A);
 bool is_hermitian(MatrixXcd &A);
 bool is_unitary(MatrixXcd &A);
 
+MatrixXcd normalize_QSVT(MatrixXcd A);
 MatrixXcd sqrt(MatrixXcd A);
 float spectral_norm(MatrixXcd &A);
 float condition_number(MatrixXcd &A);

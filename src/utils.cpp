@@ -4,6 +4,20 @@ bool is_square(MatrixXcd &A) {
   return A.rows() == A.cols();
 }
 
+bool is_shape_pow2(MatrixXcd &A) {
+  if (!is_square(A)) return false;
+  int N = A.rows();
+  return (N & (N - 1)) == 0;
+}
+
+bool is_real(MatrixXcd &A) {
+  return A.imag().cwiseAbs().maxCoeff() < 1e-8;
+}
+
+bool is_elem_norm(MatrixXcd &A) {
+  return A.cwiseAbs().maxCoeff() <= 1;
+}
+
 bool is_posdef(MatrixXcd &A) {
   return A.eigenvalues().cwiseAbs().minCoeff() > 0;
 }
@@ -16,6 +30,15 @@ bool is_unitary(MatrixXcd &A) {
   return (MatrixXcd::Identity(A.rows(), A.cols()) - A.adjoint() * A).cwiseAbs().maxCoeff() < 1e-8;
 }
 
+
+MatrixXcd normalize_QSVT(MatrixXcd A) {  // matrix normalizer for QSVT-like methods
+  MatrixXcd AAt = A * A.adjoint();
+  MatrixXcd AtA = A.adjoint() * A;
+  auto norm_AAt = AAt.cwiseAbs().maxCoeff();
+  auto norm_AtA = AtA.cwiseAbs().maxCoeff();
+  auto norm = norm_AAt > norm_AtA ? norm_AAt : norm_AtA;
+  return norm > 1 ? (A / norm) : A;
+}
 
 MatrixXcd sqrt(MatrixXcd A) {
   if (is_square(A)) {
