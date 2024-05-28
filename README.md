@@ -25,7 +25,7 @@ This is the demo run:
 
 ℹ Note that there are **two** folders containing source files:
 
-- [/playground](/playground): pennylane tutorials and pure numerical simulations for quick idea verification
+- [/playground](/playground): pennylane tutorials, pure numerical simulations for quick idea verification, debugging scipts
 - [/src](/src): the real quantum logical circuit implementation in QPanda (C++) and PyQPanda (python)
 
 
@@ -42,7 +42,7 @@ This is the demo run:
 | [ARCSIN](https://arxiv.org/abs/2402.17529) | $ d $-sparse $, \|a_{ij}\| \le 1 $ | $ U_A = (I_1 \otimes H^{\otimes n} \otimes I_n) (I_1 \otimes \mathrm{SWAP}) O_A (X \otimes H^{\otimes n} \otimes I_n) $ | $ 1 / 2^n $ | $ n + 1 $ | ✅ |
 | [FABLE](https://arxiv.org/abs/2205.00081) | $ d $-sparse $, \|a_{ij}\| \le 1 $ | $ U_A = (I_1 \otimes H^{\otimes n} \otimes I_n) (I_1 \otimes \mathrm{SWAP}) O_A (I_1 \otimes H^{\otimes n} \otimes I_n) $ | $ 1 / 2^n $ | $ n + 1 $ | ❌ |
 
-⚪ adiabetic-inspired linear system solver
+⚪ adiabatic-inspired linear system solver
 
 | Method | sched func $ f(s) $ | time complexity | query complexity (EF paper listed) | query complexity (QDA paper listed) |
 | :-: | :-: | :-: | :-: | :-: |

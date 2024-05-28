@@ -1,6 +1,6 @@
 # block_encoding
 
-ℹ 基于 QPanda (C++) 和 PyQPanda (Python) 实现了 4 种块编码算法 Block Encoding 和 5 种量子离散绝热线性系统求解器 Quantum Discrete Adiabetic Linear-system Solver
+ℹ 基于 QPanda (C++) 和 PyQPanda (Python) 实现了 4 种块编码算法 Block Encoding 和 5 种量子离散绝热线性系统求解器 Quantum Discrete Adiabatic Linear-system Solver
 
 单元测试运行结果参考：
 

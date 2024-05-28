@@ -61,7 +61,7 @@ VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b) {
   // init state
   vector<double> amplitude(init_state.data(), init_state.data() + init_state.size());
   qcir << amplitude_encode(qv, amplitude);  // premise 3: correct initial state preparation
-  // adiabetic evolution
+  // adiabatic evolution
   for (int s = 0; s < S; s++) {
     MatrixXcd H = H_s(float(s) / S);  // premise 4: ideal time-independent hamiltonion schedule
     MatrixXcd iHt = dcomplex(0, -1) * H * T;
@@ -124,7 +124,7 @@ VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b) {
   VectorXd init_state_ex = kroneckerProduct(anc0, init_state).real();
   vector<double> amplitude(init_state_ex.data(), init_state_ex.data() + init_state_ex.size());
   qcir << amplitude_encode(qv, amplitude);   // |anc_BE,0,b>
-  // adiabetic evolution
+  // adiabatic evolution
   for (int s = 0; s < S; s++) {
     MatrixXcd H = H_s((float)s / S);
     MatrixXcd iHt = exp_iHt_approx(H, T);   // restrict 3: approx as contest required

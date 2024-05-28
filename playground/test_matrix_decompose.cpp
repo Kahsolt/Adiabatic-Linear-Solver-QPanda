@@ -50,7 +50,7 @@ int main() {
   qvm.setConfigure({n_qubit, n_qubit});
   qvm.init();
   QVec qv = qvm.qAllocMany(n_qubit);
-  // adiabetic evolution
+  // adiabatic evolution
   vector<double> error_list;
   for (int s = 0; s < S; s++) {
     MatrixXcd H = H_s(s);
