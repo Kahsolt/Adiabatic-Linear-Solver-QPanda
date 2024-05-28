@@ -2,7 +2,9 @@
 # Author: Armit
 # Create Time: 2024/05/16
 
+import random
 from pathlib import Path
+from typing import List, Tuple
 
 import numpy as np
 from numpy import ndarray
@@ -106,3 +108,89 @@ def print_matrix(A:ndarray, name:str='A'):
   else:
     print(f'{name}: (norm={np.linalg.norm(A):.4g}, shape={A.shape})')
   print(A.round(4))
+
+
+''' Visual Utils '''
+
+Stat = ndarray
+Ham = ndarray
+
+def rand_state() -> Stat:
+  psi = np.empty([2, 1], dtype=np.complex64)
+  psi.real = np.random.uniform(size=psi.shape)
+  psi.imag = np.random.uniform(size=psi.shape)
+  psi /= np.linalg.norm(psi)
+  return psi
+
+def rand_hermitian(N:int) -> Ham:
+  A = np.empty([N, N], dtype=np.complex64)
+  A.real = np.random.uniform(size=A.shape)
+  A.imag = np.random.uniform(size=A.shape)
+  H = A.conj().T @ A    # make it hermitian!
+  return H
+
+def eigen_state_of_matrix(A:ndarray, id:int=-1) -> ndarray:
+  eigvecs = np.linalg.eig(A)[1]
+  if id < 0:
+    n_eigvecs = eigvecs.shape[-1]
+    id = random.randrange(n_eigvecs)
+  return np.expand_dims(eigvecs[:, id], -1)   # [N, 1]
+
+def state_str(psi:Stat) -> str:
+  psi = drop_gphase(psi)
+  a = psi[0].item().real
+  c = psi[1].item().real
+  d = psi[1].item().imag
+  sign1 = '+' if c >= 0 else '-'
+  if sign1 == '-': c, d = -c, -d
+  sign2 = '+' if d >= 0 else '-'
+  if sign2 == '-': d = -d
+  return f'{a:.3f} |0> {sign1} ({c:.3f} {sign2} {d:.3f}i) |1>'
+
+def state_vec(psi:Stat) -> Stat:
+  return psi.T[0]
+
+def drop_gphase(psi:Stat) -> Stat:
+  return psi * (psi[0].conj() / np.abs(psi[0]))
+
+def amp_to_bloch(psi:Stat) -> Tuple[float, float]:
+  psi = drop_gphase(psi).T[0]
+  tht = np.arccos(psi[0].real)
+  phi = np.angle(psi[1])
+  return tht.item(), phi.item()
+
+def get_fidelity(psi:Stat, phi:Stat) -> float:
+  return np.abs(np.dot(psi.T, phi)).item()
+
+
+def animate_cheap_bloch_plot(xlist:List[float], ylist:List[float], tlist:List[str], auto_lim:bool=False, title:str='Demo', fp:Path=None):
+  import matplotlib.pyplot as plt
+  from matplotlib.axes import Axes
+  from matplotlib.animation import FuncAnimation 
+
+  # https://stackoverflow.com/questions/42722691/python-matplotlib-update-scatter-plot-from-a-function
+  def update(s:int):
+    nonlocal ax, sc
+    sc.set_offsets(np.c_[xlist[:s], ylist[:s]])
+    ax.set_title(tlist[s])
+
+  print('>> Exporting video... this takes long, please wait...')
+  fig, ax = plt.subplots()
+  ax: Axes
+  sc = ax.scatter([], [], s=3)
+  plt.gca().invert_yaxis()
+  plt.xlabel('phi (phase)')
+  plt.ylabel('theta (polarity)')
+  if auto_lim:
+    plt.xlim(min(xlist)-0.1, max(xlist)+0.1)
+    plt.ylim(min(ylist)-0.1, max(ylist)+0.1)
+  else:
+    plt.xlim(-np.pi-0.1, np.pi  +0.1)
+    plt.ylim(     0-0.1, np.pi/2+0.1)
+  plt.suptitle(title)
+  anim = FuncAnimation(fig, update, frames=len(xlist), interval=10, repeat=False, cache_frame_data=bool(fp))
+  if fp:
+    anim.save(fp, fps=60, dpi=400)
+    print(f'>> Saved to {fp}')
+  else:
+    plt.show()
