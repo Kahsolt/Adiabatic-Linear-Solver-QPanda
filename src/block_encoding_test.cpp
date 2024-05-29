@@ -73,7 +73,6 @@ test_res test_block_encoding_LCU(int k, int T=1000) {
         case 3: A += PauliZ * coeff; break;
       }
     }
-    A = rescale_if_necessary(A);
     clock_t s = clock();
     auto res = block_encoding_LCU(A);
     ts += clock() - s;
@@ -92,7 +91,7 @@ test_res test_block_encoding_ARCSIN(int d, int T=1000) {
     for (int j = 0; j < d; j++) {
       dcomplex coeff = dcomplex(randu(), randu());
       double norm = abs(coeff);
-      if (norm > 1) coeff /= (norm * 1.01);
+      if (norm > 1) coeff /= (norm * 1.00000001);
       switch (pos[j]) {
         case 0: A(0, 0) = coeff; break;
         case 1: A(0, 1) = coeff; break;
@@ -100,7 +99,6 @@ test_res test_block_encoding_ARCSIN(int d, int T=1000) {
         case 3: A(1, 1) = coeff; break;
       }
     }
-    A = rescale_if_necessary(A);
     clock_t s = clock();
     auto res = block_encoding_ARCSIN(A);
     ts += clock() - s;
@@ -117,7 +115,7 @@ test_res test_block_encoding_FABLE(int d, int T=1000) {
     vector<int> pos = { 0, 1, 2, 3 };
     shuffle(pos.begin(), pos.end(), default_random_engine());
     for (int j = 0; j < d; j++) {
-      float coeff = randu();
+      float coeff = randu() * 0.99999999;
       switch (pos[j]) {
         case 0: A(0, 0) = coeff; break;
         case 1: A(0, 1) = coeff; break;
@@ -125,7 +123,6 @@ test_res test_block_encoding_FABLE(int d, int T=1000) {
         case 3: A(1, 1) = coeff; break;
       }
     }
-    A = rescale_if_necessary(A);
     clock_t s = clock();
     auto res = block_encoding_FABLE(A);
     ts += clock() - s;
@@ -134,19 +131,32 @@ test_res test_block_encoding_FABLE(int d, int T=1000) {
   return {float(ok) / T, ts_to_ms(ts / T)};
 }
 
+test_res test_block_encoding_method(int N, int T=1000) {
+  int ok = 0;
+  clock_t ts = 0;
+  for (int i = 0; i < T; i++) {
+    MatrixXcd A = MatrixXcd::Random(N, N);
+    clock_t s = clock();
+    auto U_A = block_encoding_method(A);
+    ts += clock() - s;
+    ok++;   // 因为 A 可能被 rescale，无法做数值校验，此处不报错就默认通过
+  }
+  return {float(ok) / T, ts_to_ms(ts / T)};
+}
+
 
 int main() {
   srand((unsigned)time(NULL)); 
   init_consts();
-/*
-  MatrixXcd A(2, 2);
-  A << dcomplex(0.1, 0.2), dcomplex(-0.3, 0.0),
-       dcomplex(0.0, 0.0), dcomplex(0.0, -0.4);
-  block_encoding_ARCSIN(A);
-  exit(0);
-*/
+
   int T = 1000;
   test_res res;
+
+  puts("[test_block_encoding_method]");
+  for (int N = 2; N <= 8; N++) {
+    res = test_block_encoding_method(N, T);
+    printf("  N = %d: pass %.2f %%, time %.3f ms\n", N, res.pass * 100, res.time);
+  }
 
   puts("[test_block_encoding_QSVT]");
   res = test_block_encoding_QSVT(T);

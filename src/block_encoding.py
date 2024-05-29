@@ -9,6 +9,11 @@ from pyqpanda import CPUQVM, QVec
 from pyqpanda import QCircuit, H, I, X, Y, Z, RY, RZ, CNOT, SWAP, BARRIER
 from pyqpanda import QProg, draw_qprog
 from pyqpanda import matrix_decompose_hamiltonian, amplitude_encode, Encode
+from pyqpanda import matrix_decompose, DecompositionMode
+
+DEBUG = False
+QCIR_SAVE = False
+QCIR_LEN = 200
 
 PauliI = np.asarray([
   [1, 0],
@@ -27,7 +32,20 @@ PauliZ = np.asarray([
   [0, -1],
 ])
 
-def show_UA(A:ndarray, qvm:CPUQVM, qv:QVec, qcir:QCircuit, lmbd:float):
+# predefined matrices for test
+A_complex = np.asarray([
+  [0.1+0.2j, -0.3],
+  [0, -0.4j],
+])
+A_real = np.asarray([
+  [0.1, 0],
+  [-0.2, 0.3],
+])
+# PauliY is not supported by pyQPanda :(
+A_LCU = 0.1 * PauliI + 0.2 * PauliX + 0.4 * PauliZ
+
+
+def show_circuit_matrix_UA(A:ndarray, qvm:CPUQVM, qv:QVec, qcir:QCircuit, lmbd:float):
   n_qubit_ex = len(qv)
   N_ex = 2 ** n_qubit_ex
   U_A = np.zeros([N_ex, N_ex], dtype=np.complex64)
@@ -55,24 +73,57 @@ def show_UA(A:ndarray, qvm:CPUQVM, qv:QVec, qcir:QCircuit, lmbd:float):
   print((U_A * lmbd).round(4))
 
 
+def block_encoding_QSVT(A:ndarray) -> ndarray:
+  def sqrt_matrix(A:ndarray):
+    evs, vecs = np.linalg.eigh(A)
+    evs = np.real(evs)
+    evs = np.where(evs > 0.0, evs, 0.0)
+    evs = evs.astype(vecs.dtype)
+    return vecs @ np.diag(np.sqrt(evs)) @ vecs.conj().T
+
+  N = A.shape[0]
+  At = A.conj().T
+  nq = int(np.log2(A.shape[0]))
+  I = np.eye(2**nq)
+  U_A = np.zeros_like(np.eye(2**(nq+1)), dtype=np.complex64)
+  U_A[:N, :N] = A
+  U_A[:N, N:] = sqrt_matrix(I - A @ At)
+  U_A[N:, :N] = sqrt_matrix(I - At @ A)
+  U_A[N:, N:] = -At
+
+  qvm = CPUQVM()
+  qvm.init_qvm()
+  qv = qvm.qAlloc_many(nq + 1)
+  qcir = matrix_decompose(qv, U_A, DecompositionMode.QSDecomposition)
+
+  print(draw_qprog(qcir, line_length=QCIR_LEN))
+  if QCIR_SAVE: draw_qprog(qcir, line_length=QCIR_LEN, output='pic', filename='qcir-QSVT.png')
+  if DEBUG: show_circuit_matrix_UA(A, qvm, qv, qcir, lmbd=1)
+
+print('[block_encoding_QSVT]')
+block_encoding_QSVT(A_complex)
+
+
 def block_encoding_LCU(A:ndarray) -> ndarray:
   ops = matrix_decompose_hamiltonian(A)
-  print('LCU:', ops)
+  if DEBUG: print('LCU:', ops)
   coeffs = []
   terms = []
   for what, coeff in ops.data():
     coeffs.append(coeff.real)
     terms.append(what[-1][0] if what[-1] else 'I')
-  print('coeffs:', coeffs)
-  print('terms:', terms)
+  if DEBUG:
+    print('coeffs:', coeffs)
+    print('terms:', terms)
 
   n_qubit = int(np.ceil(np.log2(A.shape[0])))
   n_unitary = len(coeffs)
   n_ancilla = int(np.ceil(np.log2(n_unitary)))
   n_qubit_ex = n_qubit + n_ancilla
-  print('n_unitary:', n_unitary)
-  print('n_ancilla:', n_ancilla)
-  print('n_qubit_ex:', n_qubit_ex)
+  if DEBUG:
+    print('n_unitary:', n_unitary)
+    print('n_ancilla:', n_ancilla)
+    print('n_qubit_ex:', n_qubit_ex)
 
   qvm = CPUQVM()
   qvm.init_qvm()
@@ -82,21 +133,12 @@ def block_encoding_LCU(A:ndarray) -> ndarray:
   qv = qv_w + qv_a
 
   lmbd = np.abs(coeffs).sum()
-  print('lmbd:', lmbd)
   probs = np.abs(coeffs) / lmbd
-  print('probs:', probs, 'sum=', probs.sum())
   amplitude = np.sqrt(probs)
-  print('amplitude:', amplitude)
-
-  if n_unitary == 1:
-    U_A = A / lmbd
-    print('A:')
-    print(A.round(4))
-    print('U_A:')
-    print(U_A.round(4))
-    print('U_A * lmbd:')
-    print((U_A * lmbd).round(4))
-    return U_A
+  if DEBUG:
+    print('lmbd:', lmbd)
+    print('probs:', probs, 'sum=', probs.sum())
+    print('amplitude:', amplitude)
 
   if not 'use Encode':
     encoder = Encode()
@@ -108,7 +150,7 @@ def block_encoding_LCU(A:ndarray) -> ndarray:
 
   qprog = QProg() << PREP
   probs = qvm.prob_run_list(qprog, qv_a)
-  print('probs (PREP):', probs)
+  if DEBUG: print('probs (PREP):', probs)
 
   SEL = QCircuit()
   for i in range(len(terms)):
@@ -128,16 +170,12 @@ def block_encoding_LCU(A:ndarray) -> ndarray:
     SEL << cond << cu << cond_dagger << BARRIER(qv)
 
   qcir = PREP << BARRIER(qv) << SEL << PREP_dagger
-  print(qcir)
-  #draw_qprog(qcir, output='pic', filename='qcir.png')
-
-  show_UA(A, qvm, qv, qcir, lmbd)
+  print(draw_qprog(qcir, line_length=QCIR_LEN))
+  if QCIR_SAVE: draw_qprog(qcir, line_length=QCIR_LEN, output='pic', filename='qcir-LCU.png')
+  if DEBUG: show_circuit_matrix_UA(A, qvm, qv, qcir, lmbd)
 
 print('[block_encoding_LCU]')
-# PauliY is not supported by pyQPanda
-A = 0.1 * PauliI + 0.2 * PauliX + 0.4 * PauliZ
-block_encoding_LCU(A)
-print()
+block_encoding_LCU(A_LCU)
 
 
 def block_encoding_ARCSIN(A:ndarray, tol:float=1e-5) -> ndarray:
@@ -147,8 +185,9 @@ def block_encoding_ARCSIN(A:ndarray, tol:float=1e-5) -> ndarray:
   nq_col = int(np.ceil(np.log2(N_COL)))
   n_qubit = max(nq_row, nq_col)
   n_qubit_ex = 1 + n_qubit * 2
-  print('n_qubit:', n_qubit)
-  print('n_qubit_ex:', n_qubit_ex)
+  if DEBUG:
+    print('n_qubit:', n_qubit)
+    print('n_qubit_ex:', n_qubit_ex)
   lmbd = 2**n_qubit
 
   qvm = CPUQVM()
@@ -160,9 +199,10 @@ def block_encoding_ARCSIN(A:ndarray, tol:float=1e-5) -> ndarray:
   qv_row = qv[n_qubit:-1]
   q_anc = qv[-1]
   qv_mctrl = qv[:-1]
-  print('len(qv_row):', len(qv_row))
-  print('len(qv_col):', len(qv_col))
-  print('len(qv_mctrl):', len(qv_mctrl))
+  if DEBUG:
+    print('len(qv_row):', len(qv_row))
+    print('len(qv_col):', len(qv_col))
+    print('len(qv_mctrl):', len(qv_mctrl))
 
   # Eq. 15 & 16 from arxiv:2205.00081, the basic "matrix query oracle" in FABLE essay
   # a_{i,j} = |a_{i,j}| exp(i * \alpha_{i,j})
@@ -171,8 +211,9 @@ def block_encoding_ARCSIN(A:ndarray, tol:float=1e-5) -> ndarray:
   # Eq. 6 from arxiv:2402.17529, here we use ARCSIN method for the real parts
   thetas = np.arcsin(np.abs(A))
   phis = np.angle(A)
-  print('thetas:', thetas)
-  print('phis:', phis)
+  if DEBUG:
+    print('thetas:', thetas)
+    print('phis:', phis)
 
   qcir = QCircuit()
   for q in qv_row: qcir << H(q)
@@ -204,47 +245,34 @@ def block_encoding_ARCSIN(A:ndarray, tol:float=1e-5) -> ndarray:
   qcir << X(q_anc)    # ARCSIN flip ancilla
   qcir << BARRIER(qv)
   for q in qv_row: qcir << H(q)
-  print(qcir)
-
-  show_UA(A, qvm, qv, qcir, lmbd)
+  print(draw_qprog(qcir, line_length=QCIR_LEN))
+  if QCIR_SAVE: draw_qprog(qcir, line_length=QCIR_LEN, output='pic', filename='qcir-ARCSIN.png')
+  if DEBUG: show_circuit_matrix_UA(A, qvm, qv, qcir, lmbd)
 
 print('[block_encoding_ARCSIN]')
-A = np.asarray([
-  [0.1+0.2j, -0.3],
-  [0, -0.4j],
-])
-'''
-A = np.asarray([
-  [0.1, -0.2j, -0.3, 0.4j],
-  [0.5, -0.6j, -0.7, 0.8j],
-  [0, 0, 0, 0],
-  [0, 0, 0, 0],
-])
-'''
-block_encoding_ARCSIN(A)
-print()
+block_encoding_ARCSIN(A_complex)
 
 
 def block_encoding_FABLE_compute_theta(alpha:ndarray) -> ndarray:
-    def _matrix_M_entry(row, col):
-      # (col >> 1) ^ col is the Gray code of col
-      b_and_g = row & ((col >> 1) ^ col)
-      sum_of_ones = 0
-      while b_and_g > 0:
-        if b_and_g & 0b1:
-          sum_of_ones += 1
-        b_and_g = b_and_g >> 1
-      return (-1) ** sum_of_ones
+  def _matrix_M_entry(row, col):
+    # (col >> 1) ^ col is the Gray code of col
+    b_and_g = row & ((col >> 1) ^ col)
+    sum_of_ones = 0
+    while b_and_g > 0:
+      if b_and_g & 0b1:
+        sum_of_ones += 1
+      b_and_g = b_and_g >> 1
+    return (-1) ** sum_of_ones
 
-    ln = alpha.shape[-1]
-    k = np.log2(ln)
-    M_trans = np.zeros(shape=(ln, ln))
-    for i in range(len(M_trans)):
-      for j in range(len(M_trans[0])):
-        M_trans[i, j] = _matrix_M_entry(j, i)
-    print('M_trans:', M_trans)
-    theta = np.transpose(np.dot(M_trans, np.transpose(alpha)))
-    return theta / 2**k
+  ln = alpha.shape[-1]
+  k = np.log2(ln)
+  M_trans = np.zeros(shape=(ln, ln))
+  for i in range(len(M_trans)):
+    for j in range(len(M_trans[0])):
+      M_trans[i, j] = _matrix_M_entry(j, i)
+  if DEBUG: print('M_trans:', M_trans)
+  theta = np.transpose(np.dot(M_trans, np.transpose(alpha)))
+  return theta / 2**k
 
 def block_encoding_FABLE_gray_code(rank:int) -> List[str]:
   def gray_code_recurse(g, rank):
@@ -265,8 +293,9 @@ def block_encoding_FABLE_gray_code(rank:int) -> List[str]:
 def block_encoding_FABLE(A:ndarray, tol:float=1e-8) -> ndarray:
   n_qubit = int(np.ceil(np.log2(A.shape[0])))
   n_qubit_ex = 1 + n_qubit * 2
-  print('n_qubit:', n_qubit)
-  print('n_qubit_ex:', n_qubit_ex)
+  if DEBUG:
+    print('n_qubit:', n_qubit)
+    print('n_qubit_ex:', n_qubit_ex)
 
   qvm = CPUQVM()
   qvm.init_qvm()
@@ -276,26 +305,29 @@ def block_encoding_FABLE(A:ndarray, tol:float=1e-8) -> ndarray:
   ancilla = wires[0]
   wires_i = wires[1 : 1 + len(wires) // 2][::-1]
   wires_j = wires[1 + len(wires) // 2 : len(wires)][::-1]
-  print('wires:', wires)
-  print('ancilla:', ancilla)
-  print('wires_i:', wires_i)
-  print('wires_j:', wires_j)
+  if DEBUG:
+    print('wires:', wires)
+    print('ancilla:', ancilla)
+    print('wires_i:', wires_i)
+    print('wires_j:', wires_j)
   
   code = block_encoding_FABLE_gray_code(2 * n_qubit)
-  print('code:', code)
+  if DEBUG: print('code:', code)
   n_sel = len(code)
   ctrl_wires = [
     int(np.log2(int(code[i], 2) ^ int(code[(i + 1) % n_sel], 2)))
     for i in range(n_sel)
   ]
-  print('ctrl_wires:', ctrl_wires)
   wire_map = dict(enumerate(wires_j + wires_i))
-  print('wire_map:', wire_map)
+  if DEBUG:
+    print('ctrl_wires:', ctrl_wires)
+    print('wire_map:', wire_map)
 
   alphas = np.arccos(A).flatten()
   thetas = block_encoding_FABLE_compute_theta(alphas)
-  print('alphas:', alphas)
-  print('thetas:', thetas)
+  if DEBUG:
+    print('alphas:', alphas)
+    print('thetas:', thetas)
   lmbd = 2**n_qubit
 
   qcir = QCircuit()
@@ -319,15 +351,9 @@ def block_encoding_FABLE(A:ndarray, tol:float=1e-8) -> ndarray:
     qcir << SWAP(qv[i], qv[j])
   qcir << BARRIER(qv)
   for i in wires_i: qcir << H(qv[i])
-  print(qcir)
-
-  show_UA(A, qvm, qv, qcir, lmbd)
-
+  print(draw_qprog(qcir, line_length=QCIR_LEN))
+  if QCIR_SAVE: draw_qprog(qcir, line_length=QCIR_LEN, output='pic', filename='qcir-FABLE.png')
+  if DEBUG: show_circuit_matrix_UA(A, qvm, qv, qcir, lmbd)
 
 print('[block_encoding_FABLE]')
-A = np.asarray([
-  [0.1, 0],
-  [-0.2, 0.3],
-])
-block_encoding_FABLE(A)
-print()
+block_encoding_FABLE(A_real)

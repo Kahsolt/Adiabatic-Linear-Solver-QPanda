@@ -12,10 +12,36 @@ bool check_block_encoding(block_encoding_res &res, MatrixXcd &A, float eps=1e-5)
 }
 
 
+// Block-Encoding interface
+MatrixXcd block_encoding(MatrixXcd H, BlockEncodingMethod method=BlockEncodingMethod::ARCSIN) {
+  if (!is_shape_pow2(H)) {  // auto expand shape
+    int N = H.rows(), M = H.cols();
+    int maxN = N > M ? N : M;
+    maxN = int(pow(ceil(log2(maxN)), 2));
+    MatrixXcd H_ex = MatrixXcd::Zero(maxN, maxN);
+    H_ex.block(0, 0, N, M) = H;
+    H = H_ex;
+  }
+  block_encoding_res res;
+  switch (method) {
+    case BlockEncodingMethod::QSVT:   res = block_encoding_QSVT  (H); break;
+    case BlockEncodingMethod::QSVT0:  res = block_encoding_QSVT0 (H); break;
+    case BlockEncodingMethod::LCU:    res = block_encoding_LCU   (H); break;
+    case BlockEncodingMethod::ARCSIN: res = block_encoding_ARCSIN(H); break;
+    case BlockEncodingMethod::FABLE:  res = block_encoding_FABLE (H); break;
+    default: throw invalid_argument("invalid method");
+  }
+  return res.unitary;
+}
+
+
 // Block-Encoding via QSVT-like direct construction from arXiv:2203.10236 Eq. 3.4
 // Accepting arbitary square or non-sqaure matrix
 block_encoding_res block_encoding_QSVT(MatrixXcd A) {
-  if (spectral_norm(A) > 1) throw domain_error("A must satisfy ||A||2 <= 1");
+  if (spectral_norm(A) > 1) {
+    cout << "spectral_norm: " << spectral_norm(A) << endl;
+    throw domain_error("A must satisfy ||A||2 <= 1");
+  }
 
   // https://pennylane.ai/qml/demos/tutorial_intro_qsvt/
   int N = A.rows(), M = A.cols();
@@ -352,13 +378,8 @@ block_encoding_res block_encoding_FABLE(MatrixXcd A, float eps=1e-8) {
 
 // ↓↓ keep signature for the contest solution
 MatrixXcd block_encoding_method(MatrixXcd H) {
-  if (!is_shape_pow2(H)) {  // auto expand shape
-    int N = H.rows(), M = H.cols();
-    int maxN = N > M ? N : M;
-    maxN = int(pow(ceil(log2(maxN)), 2));
-    MatrixXcd H_ex = MatrixXcd::Zero(maxN, maxN);
-    H_ex.block(0, 0, N, M) = H;
-    H = H_ex;
-  }
-  return block_encoding_ARCSIN(H).unitary;
+  // 由于测试数据不保证谱范数、系数值域等等条件，我们使用应用范围最广的 QSVT 作为最终提交解答；
+  // 即使它不存在理论意义上复杂度低的门线路分解方案 :(
+  H = rescale_if_necessary(H);
+  return block_encoding(H, BlockEncodingMethod::QSVT);
 }

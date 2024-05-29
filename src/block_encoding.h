@@ -17,6 +17,19 @@ struct block_encoding_res {
 
 bool check_block_encoding(block_encoding_res &res, MatrixXcd &A, float eps=1e-5);
 
+enum struct BlockEncodingMethod {
+  // directly construct
+  QSVT   = 10,
+  QSVT0  = 11,
+  // prepare-select based
+  LCU    = 20,
+  // query-oracle based
+  ARCSIN = 30,
+  FABLE  = 31,
+};
+
+MatrixXcd block_encoding(MatrixXcd A, BlockEncodingMethod method=BlockEncodingMethod::ARCSIN);
+
 block_encoding_res block_encoding_QSVT(MatrixXcd A);
 block_encoding_res block_encoding_QSVT0(MatrixXcd A);
 block_encoding_res block_encoding_LCU(MatrixXcd A, float eps=1e-8);
