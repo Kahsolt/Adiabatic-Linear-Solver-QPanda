@@ -227,7 +227,7 @@ def arXiv_1909_05500_AQC():
       T_ref = κ * np.log(κ) / ε
     elif sched == 'exp':    # near Eq. 9
       T_ref = κ * np.log(κ)**2 * np.log(np.log(κ) / ε)**4
-    T = int(T_ref)          # 总演化的物理时间 (这是一个神秘的超参，过大过小都会直接结果不对！！)
+    T = int(T_ref)          # 总演化的物理时间 (这是一个神秘的超参，过大过小都会直接结果不对！！)，报告视频消融实验里最高取到 T = 1000
     print(f'T: {T} (ref: {T_ref})')
     S = 1000                # 手工指定迭代次数 ~O(κ^2)，越大精度越高
     h = 1 / S               # 每步演化的物理时间 (这是一个神秘的超参，过大过小都会直接结果不对！！)
@@ -281,6 +281,7 @@ print()
 1. 先用 AQC(p) 跑出来一个近似解 |\hat{x0}> = \gamma_0 |0,x> + \gamma_1 |1,b> + |⊥>
 2. 纯线性代数的思路，乘上一个矩阵进行过滤 R_l(H1/d; 1/(dk)) |\hat{x0}> 将会去除无关成分 |⊥>
   - R_l(x,Δ) 是一个标量函数，如何定义它的矩阵版本 R_l(H,Δ)? element-wise??
+  - |x> ~= P_{λ=0}(H1)|x0>
 3. 对第一辅助比特进行测量，将有 \gamma_0^2 概率去除误差成分 |1,b> 而得到目标 |0,x>
 '''
 def arXiv_1910_14596_EF():
@@ -309,7 +310,8 @@ def arXiv_1910_14596_EF():
 
 '''
 [Quantum Discrete Adiabatic]
-1. 纯线性代数的思路，先 QWalk 到一个近似解，再 Eigen-Filter
+1. 纯线性代数的思路，先 QWalk 到一个近似解，再 Eigen-Filter with LCU
+2. QWalk 算子 W_T(s) 的实际效果似乎是 expm(i * arcsin(H) * λ)
 '''
 def arXiv_2111_08152_QDA():
   # Eq.114, the AQC(P) borrowed from arXiv:1909.05500
@@ -318,66 +320,78 @@ def arXiv_2111_08152_QDA():
     return κ / (κ - 1) * (1 - t**(1 / (1 - p)))
   f = partial(f_, 1.5)
 
-  # tmp vars
-  nq = int(np.log2(A.shape[0]))
-  v0v0 = v0 @ v0.conj().T
-  v0v1 = v0 @ v1.conj().T
-  v1v0 = v1 @ v0.conj().T
-  v1v1 = v1 @ v1.conj().T
+  if not 'Appendix E':
+    # NOTE: 以下为附录 E 的内容，描述了系数矩阵 A 是以块编码的形式 U_A 给出时，如何进一步块编码 H(s)
+    # 但赛题里的 A 是直接给出矩阵形式的，所以可以直接按公式 Eq.124 来构造矩阵进而整体编码 H(s)，完全不用看这坨答辩 :(
+    # arXiv:2312.07690 Fig. 4 给出了 H(s) 块编码的线路实现，并再度重申了：
+    # "The walk operator W_T(s) can be completed by a reflection about zero on all ancilla registers except a_h"
+    # 但确定这个 reflection 操作依然比较困难，即使 pennylane 中有相关实现
 
-  # Eq. E1 [D=8]
-  from pennylane import qml
-  dev = qml.device('default.qubit', wires=3)
-  @qml.qnode(dev)
-  def fable_method(A:ndarray):
-    qml.FABLE(A, wires=range(3), tol=0)
-    return qml.state()
-  U_A: ndarray = qml.matrix(fable_method)(A).real   # D=8
-  nq_BE = int(np.log2(U_A.shape[0]))
-  assert np.allclose(U_A[:N, :N]*N, A), 'block encode check error'
-  # Eq. E2 (D=2)
-  U_b = RY(2*np.arccos(b[0, 0]))  # U_b|0> = |b>
-  # Eq. E3 (D=4), {a1,A}
-  A_f = lambda s: (1 - f(s)) * np.kron(σz, I_(nq)) + f(s) * (np.kron(v0v1, A) + np.kron(v1v0, A.conj().T))
-  # Eq. E4 (D=32) {a2,a1,A,BE_a1,BE_a2}
-  def U_A_f(s:float) -> ndarray:
-    p = (1 - f(s)) * np.kron(v0v0,  np.kron(σz, I_(nq_BE)))
-    q =      f(s)  * np.kron(v1v1, (np.kron(v0v1, U_A) + np.kron(v1v0, U_A.conj().T)))
-    return p + q
-  # Eq. E5 (D=4) {a1,b}
-  Q_b = I_(1+nq) - np.kron(v1v1, b @ b.conj().T)
-  # Eq. E7 (D=8) {a3,a1,b}
-  t1 = np.kron(I_(2), U_b.conj().T)
-  t2 = np.kron(v0v0, I_(1+nq)) + np.kron(v1v1, 2*I_(1+nq) - np.kron(v1v1, v0v0))
-  t3 = np.kron(I_(2), U_b)
-  U_Q_b = t1 @ t2 @ t3
-  # Eq. E8 (D=8) {a4,(a1,A)*(a1,b)}
-  H_s = lambda s: np.kron(v0v1, A_f(s) @ Q_b) + np.kron(v1v0, Q_b @ A_f(s))
-  # Eq. E9 (D=16) {a4,a3,a1,b}
-  C_U_Q_b_1 = np.kron(v0v0, I_(2+nq)) + np.kron(v1v1, U_Q_b)
-  C_U_Q_b_0 = np.kron(v1v1, I_(2+nq)) + np.kron(v0v0, U_Q_b)
-  # Eq. 127 (D=2)
-  R_s = lambda s: np.asarray([
-    [1 - f(s), f(s)],
-    [f(s), f(s) - 1],
-  ]) / np.sqrt((1 - f(s))**2 + f(s)**2)
-  # Eq. E10 & E11 (D=4) {a4,a2}
-  CR_s_0 = lambda s: np.kron(v0v0, R_s(s)) + np.kron(v1v1, H)
-  CR_s_1 = lambda s: np.kron(v1v1, R_s(s)) + np.kron(v0v0, H)
-  # Eq. E12 (need 7 qubits in total)
-  def U_H_s(s:float) -> float:
-    ''' ubit order: |a4,a3,a2,a1,ψ,BE_a1,BE_a2>'''
-    nq_circ = 4 + nq_BE
-    g = I_(nq_circ)       # start from I
-    g = g @ np.kron(I_(1), np.kron(H, I_(nq_circ-2)))
-    g = g @ C_U_Q_b_1     # a4,a3,a1,b
-    g = g @ CR_s_0(s)     # a4,a2
-    g = g @ np.kron(I_(2), U_A_f(s))    # {a2,a1,A,BE_a1,BE_a2}
-    g = g @ CR_s_1(s)     # a4,a2
-    g = g @ C_U_Q_b_0     # a4,a3,a1,b
-    g = g @ np.kron(I_(1), np.kron(H, I_(nq_circ-2)))
-    g = g @ np.kron(σx, I_(nq_circ-1))
-    return g
+    # tmp vars
+    nq = int(np.log2(A.shape[0]))
+    v0v0 = v0 @ v0.conj().T
+    v0v1 = v0 @ v1.conj().T
+    v1v0 = v1 @ v0.conj().T
+    v1v1 = v1 @ v1.conj().T
+
+    # Eq. E1 [D=8]
+    from pennylane import qml
+    dev = qml.device('default.qubit', wires=3)
+    @qml.qnode(dev)
+    def fable_method(A:ndarray):
+      qml.FABLE(A, wires=range(3), tol=0)
+      return qml.state()
+    U_A: ndarray = qml.matrix(fable_method)(A).real   # D=8
+    nq_BE = int(np.log2(U_A.shape[0]))
+    assert np.allclose(U_A[:N, :N]*N, A), 'block encode check error'
+    # Eq. E2 (D=2)
+    U_b = RY(2*np.arccos(b[0, 0]))  # U_b|0> = |b>
+    # Eq. E3 (D=4), {a1,A}
+    A_f = lambda s: (1 - f(s)) * np.kron(σz, I_(nq)) + f(s) * (np.kron(v0v1, A) + np.kron(v1v0, A.conj().T))
+    # Eq. E4 (D=32) {a2,a1,A,BE_a1,BE_a2}, A and b is the same qubit
+    def U_A_f(s:float) -> ndarray:
+      p = (1 - f(s)) * np.kron(v0v0,  np.kron(σz, I_(nq_BE)))
+      q =      f(s)  * np.kron(v1v1, (np.kron(v0v1, U_A) + np.kron(v1v0, U_A.conj().T)))
+      return p + q
+    # Eq. E5 (D=4) {a1,b}
+    Q_b = I_(1+nq) - np.kron(v1v1, b @ b.conj().T)
+    # Eq. E7 (D=8) {a3,a1,b}
+    t1 = np.kron(I_(2), U_b.conj().T)
+    t2 = np.kron(v0v0, I_(1+nq)) + np.kron(v1v1, 2*I_(1+nq) - np.kron(v1v1, v0v0))
+    t3 = np.kron(I_(2), U_b)
+    U_Q_b = t1 @ t2 @ t3
+    # Eq. E8 (D=8) {a4,(a1,A)*(a1,b)}
+    H_s = lambda s: np.kron(v0v1, A_f(s) @ Q_b) + np.kron(v1v0, Q_b @ A_f(s))
+    # Eq. E9 (D=16) {a4,a3,a1,b}
+    C_U_Q_b_1 = np.kron(v0v0, I_(2+nq)) + np.kron(v1v1, U_Q_b)
+    C_U_Q_b_0 = np.kron(v1v1, I_(2+nq)) + np.kron(v0v0, U_Q_b)
+    # Eq. 127 (D=2)
+    R_s = lambda s: np.asarray([
+      [1 - f(s), f(s)],
+      [f(s), f(s) - 1],
+    ]) / np.sqrt((1 - f(s))**2 + f(s)**2)
+    # Eq. E10 & E11 (D=4) {a4,a2}
+    CR_s_0 = lambda s: np.kron(v0v0, R_s(s)) + np.kron(v1v1, H)
+    CR_s_1 = lambda s: np.kron(v1v1, R_s(s)) + np.kron(v0v0, H)
+    # Eq. E12 (need 7 qubits in total)
+    def U_H_s(s:float) -> ndarray:
+      ''' ubit order: |a4,a3,a2,a1,ψ,BE_a1,BE_a2>'''
+      nq_circ = 4 + nq_BE
+      g = I_(nq_circ)       # start from I
+      g = g @ np.kron(I_(1), np.kron(H, I_(nq_circ-2)))
+      g = g @ C_U_Q_b_1     # a4,a3,a1,b
+      g = g @ CR_s_0(s)     # a4,a2
+      g = g @ np.kron(I_(2), U_A_f(s))    # {a2,a1,A,BE_a1,BE_a2}
+      g = g @ CR_s_1(s)     # a4,a2
+      g = g @ C_U_Q_b_0     # a4,a3,a1,b
+      g = g @ np.kron(I_(1), np.kron(H, I_(nq_circ-2)))
+      g = g @ np.kron(σx, I_(nq_circ-1))
+      return g
+    # "随机游走算子是 H(s) 的块编码围绕着零向量在辅助比特上的反射", wtf??
+    def W_T(s:float) -> ndarray:
+      H_s = U_H_s(s)
+      H_s_dagger = H_s.conj().T
+      return 'wtf'
 
   print('[QDA] O(κ*log(1/ε)')
   # 制备初态: |0,+,b> of H0
@@ -394,9 +408,9 @@ def arXiv_2111_08152_QDA():
     trails = [s, s+1/T] + ([] if np.isclose(s, 1 - 1 / T) else [s+2/T])
     return 2 * max([2 * np.abs(f_p(τ))**2 + np.abs(f_pp(τ))] for τ in trails)
   # 走！
-  for t in range(1, T):
+  for t in range(1, T+1):
     s = t / T
-    qs = U_H_s(s) @ qs
+    qs = W_T(s) @ qs
   # 读出末态: |ψ_T(1)> = |\tilde{x}>, 解出 |x>
   print('final state:', qs.T[0].round(4))
   x_ref = np.kron(v1, np.kron(h1, x))
@@ -407,4 +421,18 @@ def arXiv_2111_08152_QDA():
 #print('=' * 42)
 #print('[arXiv_2111_08152_QDA]')
 #arXiv_2111_08152_QDA()
+#print()
+
+
+'''
+[Efficient Quantum Linear Solver with Detailed Running Costs]
+1. 纯粹破事水的思路，先 RM 到一个近似解，再 Eigen-Filter
+'''
+def arXiv_2305_11352_EQLS():
+  pass
+
+# FIXME: NotImplemented
+#print('=' * 42)
+#print('[arXiv_2305_11352_EQLS]')
+#arXiv_2305_11352_EQLS()
 #print()

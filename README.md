@@ -44,22 +44,23 @@ This is the demo run:
 
 ⚪ adiabatic-inspired linear system solver
 
-| Method | sched func $ f(s) $ | time complexity | query complexity (EF paper listed) | query complexity (QDA paper listed) |
-| :-: | :-: | :-: | :-: | :-: |
-| [RM (algo-1)](https://arxiv.org/abs/1805.10549) | $ \mathrm{linear} $ | $ \mathcal{O}(\kappa^2 \mathrm{log}(\kappa) / \epsilon) $ | $ \mathcal{O}(\kappa / \epsilon) $ |  |
-| [RM (algo-2)](https://arxiv.org/abs/1805.10549) | $ \mathrm{linear} $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa) / \epsilon) $ | $ \mathcal{O}(\kappa / \epsilon) $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa) / \epsilon) $ |
-| [vanilla AQC](https://arxiv.org/abs/1909.05500) | $ \mathrm{linear} $ | $ \mathcal{O}(\kappa^3 / \epsilon) $ | $ \mathcal{O}(\kappa^2 / \epsilon) $ |  |
-| [AQC(P)](https://arxiv.org/abs/1909.05500)      | $ \mathrm{poly} $ | $ \mathcal{O}(\kappa / \epsilon) \sim \mathcal{O}(\kappa \mathrm{log}(\kappa) / \epsilon) $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa) \mathrm{loglog}(\kappa)) $ for $ \mathcal{O}(1) $ precision |  |
-| [AQC(EXP)](https://arxiv.org/abs/1909.05500)    | $ \mathrm{exp} $  | $ \mathcal{O}(\kappa \mathrm{log}^2(\kappa) \mathrm{log}^4(\mathrm{log}(\kappa)/\epsilon)) $ | $ \mathcal{O}(\kappa \mathrm{polylog}(1 / \epsilon)) $ | $ \mathcal{O}(\kappa \mathrm{polylog}(\kappa / \epsilon)) $ |
-| [EF](https://arxiv.org/abs/1910.14596) (not implemented)  | $ \mathrm{poly} $ |  | $ \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa / \epsilon)) $ |
-| [QDA](https://arxiv.org/abs/2111.08152) (not implemented) | $ \mathrm{poly} $ |  |  | $ \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $ |
+| Method | year | sched func $ f(s) $ | time complexity | query complexity (EF paper listed) | query complexity (QDA paper listed) |
+| :-: | :-: | :-: | :-: | :-: | :-: |
+| [RM (algo-1)](https://arxiv.org/abs/1805.10549) | 2018 | $ \mathrm{linear} $ | $ \mathcal{O}(\kappa^2 \mathrm{log}(\kappa) / \epsilon) $ | $ \mathcal{O}(\kappa / \epsilon) $ |  |
+| [RM (algo-2)](https://arxiv.org/abs/1805.10549) | 2018 | $ \mathrm{linear} $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa) / \epsilon) $ | $ \mathcal{O}(\kappa / \epsilon) $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa) / \epsilon) $ |
+| [vanilla AQC](https://arxiv.org/abs/1909.05500) | 2019 | $ \mathrm{linear} $ | $ \mathcal{O}(\kappa^3 / \epsilon) $ | $ \mathcal{O}(\kappa^2 / \epsilon) $ |  |
+| [AQC(P)](https://arxiv.org/abs/1909.05500)      | 2019 | $ \mathrm{poly} $ | $ \mathcal{O}(\kappa / \epsilon) \sim \mathcal{O}(\kappa \mathrm{log}(\kappa) / \epsilon) $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa) \mathrm{loglog}(\kappa)) $ for $ \mathcal{O}(1) $ precision |  |
+| [AQC(EXP)](https://arxiv.org/abs/1909.05500)    | 2019 | $ \mathrm{exp} $  | $ \mathcal{O}(\kappa \mathrm{log}^2(\kappa) \mathrm{log}^4(\mathrm{log}(\kappa)/\epsilon)) $ | $ \mathcal{O}(\kappa \mathrm{polylog}(1 / \epsilon)) $ | $ \mathcal{O}(\kappa \mathrm{polylog}(\kappa / \epsilon)) $ |
+| [EF](https://arxiv.org/abs/1910.14596) (not implemented)  | 2019 | $ \mathrm{poly} $ |  | $ \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa / \epsilon)) $ |
+| [QDA](https://arxiv.org/abs/2111.08152) (not implemented) | 2021 | $ \mathrm{poly} $ |  |  | $ \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $ |
+| [EQLS](https://arxiv.org/abs/2305.11352) (not implemented) | 2023 | $ \mathrm{linear} $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa / \epsilon)) $ |  |  |
 
 ℹ Note that $ \mathcal{\Omega}(\kappa \mathrm{log}(1 / \epsilon)) $ is the theoretical lower bound for sparse QLSP
 
 > Obviously there is an argument between QDA and EF, that EF overlooked a factor by $ \mathrm{log}(k) $? 🤔
 > - EF := AQC(P) + EF = $ \mathcal{O}(\kappa \mathrm{log}(\kappa) \mathrm{loglog}(\kappa)) + \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $
 > - QDA := QWalk + EF = $ \mathcal{O}(\kappa) + \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $
->
+> - EQLS: = RM + EF
 > OK then, QDA might be right: EF forgot to count for its AQC(p) part
 
 
@@ -71,13 +72,19 @@ This is the demo run:
   - pennylane: [https://github.com/PennyLaneAI/pennylane](https://github.com/PennyLaneAI/pennylane)
 - thesis
   - [1] Optimal scaling quantum linear systems solver via discrete adiabatic theorem: [https://arxiv.org/abs/2111.08152](https://arxiv.org/abs/2111.08152)
+    - report lecture (2022): [https://www.youtube.com/watch?v=qEA37SfxPEs](https://www.youtube.com/watch?v=qEA37SfxPEs)
   - [3] Quantum algorithm for systems of linear equations with exponentially improved dependence on precision: [https://arxiv.org/abs/1511.02306](https://arxiv.org/abs/1511.02306)
+    - report lecture (2015): [https://www.youtube.com/watch?v=IdCCn2X5dW4](https://www.youtube.com/watch?v=IdCCn2X5dW4)
   - [4] Hamiltonian Simulation by Qubitization: [https://arxiv.org/abs/1610.06546](https://arxiv.org/abs/1610.06546)
   - [5] Quantum linear system solver based on time-optimal adiabatic quantum computing and quantum approximate optimization algorithm: [https://arxiv.org/abs/1909.05500](https://arxiv.org/abs/1909.05500)
+    - report lecture (2020): [https://www.youtube.com/watch?v=RiRaHGEvlZE](https://www.youtube.com/watch?v=RiRaHGEvlZE)
+  - The discrete adiabatic quantum linear system solver has lower constant factors than the randomised adiabatic solver: [https://arxiv.org/abs/2312.07690](https://arxiv.org/abs/2312.07690)
+    - report lecture (2024): [https://www.youtube.com/watch?v=WfByvOf3N3Y](https://www.youtube.com/watch?v=WfByvOf3N3Y)
   - Quantum Computation by Adiabatic Evolution: [https://arxiv.org/abs/quant-ph/0001106](https://arxiv.org/abs/quant-ph/0001106)
   - Quantum state preparation by phase randomization: [https://arxiv.org/abs/0903.1652](https://arxiv.org/abs/0903.1652)
   - Quantum algorithms for systems of linear equations inspired by adiabatic quantum computing: [https://arxiv.org/abs/1805.10549](https://arxiv.org/abs/1805.10549)
   - Optimal polynomial based quantum eigenstate filtering with application to solving quantum linear systems: [https://arxiv.org/abs/1910.14596](https://arxiv.org/abs/1910.14596)
+  - Efficient quantum linear solver algorithm with detailed running costs: [https://arxiv.org/abs/2305.11352](https://arxiv.org/abs/2305.11352)
 - Block Encoding
   - pennylane tutorials
     - Intro to QSVT: [https://pennylane.ai/qml/demos/tutorial_intro_qsvt/](https://pennylane.ai/qml/demos/tutorial_intro_qsvt/)
