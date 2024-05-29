@@ -6,6 +6,7 @@
 #include "Core/QuantumCircuit/QProgram.h"
 #include "Core/Utilities/QProgInfo/Visualization/QVisualization.h"
 #include "Core/Utilities/Tools/MatrixDecomposition.h"
+#include "Core/Utilities/UnitaryDecomposer/QSDecomposition.h"
 #include "QAlg/Base_QCircuit/AmplitudeEncode.h"
 #include "block_encoding.h"
 #include "qda_linear_solver.h"
@@ -18,7 +19,7 @@ static MatrixXcd PauliP(2, 2);
 static MatrixXcd PauliM(2, 2);
 static bool is_init_consts = false;
 
-void init_consts() {
+inline void init_consts() {
   if (is_init_consts) return;
   v0 << 1, 0;
   PauliX << 0, 1,
@@ -36,9 +37,28 @@ inline MatrixXcd exp_iHt_approx(MatrixXcd H, float t=1.0) {
   return MatrixXcd::Identity(N, N) - dcomplex(0, 1) * H * t;
 }
 
+inline QCircuit matrix_decompose(DecompositionMode method, MatrixXcd mat, QVec qv) {
+  QCircuit qcir;
+  QMatrixXcd qmat = mat;
+  switch (method) {
+    case DecompositionMode::QR:
+      qcir = matrix_decompose_qr(qv, qmat, false);  // NOTE: must keep false here
+      break;
+    case DecompositionMode::CSD:
+      qcir = unitary_decomposer_nq(mat, qv, DecompositionMode::CSD, true);   // NOTE: must keep true here
+      break;
+    case DecompositionMode::QSD:
+      qcir = unitary_decomposer_nq(mat, qv, DecompositionMode::QSD, true);   // NOTE: must keep true here
+      break;
+    default:
+      throw invalid_argument("invalid decompose_method");
+  }
+  return qcir;
+}
+
 
 // The ideal yet naive QDA implementation
-VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b) {
+VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b, DecompositionMode decompose_method=DecompositionMode::QR) {
   init_consts();
 
   // time-dependent hamiltonian
@@ -65,8 +85,8 @@ VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b) {
   for (int s = 0; s < S; s++) {
     MatrixXcd H = H_s(float(s) / S);  // premise 4: ideal time-independent hamiltonion schedule
     MatrixXcd iHt = dcomplex(0, -1) * H * T;
-    QMatrixXcd U_iHt = iHt.exp();     // premise 5: ideal time evolution operator
-    QCircuit qc_TE = matrix_decompose_qr(qv, U_iHt, false);  // NOTE: must keep false here
+    MatrixXcd U_iHt = iHt.exp();      // premise 5: ideal time evolution operator
+    QCircuit qc_TE = matrix_decompose(decompose_method, U_iHt, qv);
     qcir << qc_TE << BARRIER(qv);
   }
   // final state
@@ -77,12 +97,12 @@ VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b) {
   // result
   qs = QStat(qs.begin(), qs.begin() + 2);  // project only the first qubit
   VectorXcd state = Map<VectorXcd>(qs.data(), qs.size());
-  return state / state.norm();  // re-norm
+  return state;
 }
 
 
 // The basic implementation strictly follows all contest-specified restrictions (?
-VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b) {
+VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b, DecompositionMode decompose_method=DecompositionMode::QR) {
   init_consts();
 
   // time-dependent hamiltonian
@@ -126,11 +146,11 @@ VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b) {
   qcir << amplitude_encode(qv, amplitude);   // |anc_BE,0,b>
   // adiabatic evolution
   for (int s = 0; s < S; s++) {
-    MatrixXcd H = H_s((float)s / S);
+    MatrixXcd H = H_s(float(s) / S);
     MatrixXcd iHt = exp_iHt_approx(H, T);   // restrict 3: approx as contest required
     iHt = normalize_QSVT(iHt);
-    QMatrixXcd U_iHt = block_encoding_QSVT(iHt).unitary;  // restrict 4: block_encode as contest required, and as consequence of approx
-    QCircuit qc_TE = matrix_decompose_qr(qv, U_iHt, false);  // NOTE: must keep false here
+    MatrixXcd U_iHt = block_encoding_QSVT(iHt).unitary;  // restrict 4: block_encode as contest required, and as consequence of approx
+    QCircuit qc_TE = matrix_decompose(decompose_method, U_iHt, qv);
     qcir << qc_TE << BARRIER(qv);
   }
   // final state
@@ -141,7 +161,7 @@ VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b) {
   // result
   qs = QStat(qs.begin(), qs.begin() + 2);  // project only the first qubit
   VectorXcd state = Map<VectorXcd>(qs.data(), qs.size());
-  return state / state.norm();  // re-norm
+  return state;
 }
 
 
@@ -157,8 +177,9 @@ qdals_res qda_linear_solver(MatrixXcd A, VectorXcd b) {
   VectorXcd s_r = A.colPivHouseholderQr().solve(b);
   VectorXcd x_r = s_r / s_r.norm();
   // quantum solution |x>
-  auto b_norm = b.norm();
-  VectorXcd x = linear_solver_contest(A / b_norm, b / b_norm);
+  auto b_norm = b.norm();   // pre-process norm
+  VectorXcd x = linear_solver_contest(A / b_norm, b / b_norm, DecompositionMode::QR);
+  x /= x.norm();            // post-process re-norm
   // fidelity <x_r|x>
   dcomplex fidelity = x_r.adjoint().dot(x);
 

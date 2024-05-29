@@ -3,11 +3,13 @@
 
 #include <complex>
 #include "ThirdParty/Eigen/Eigen"
+#include "Core/Utilities/Tools/MatrixDecomposition.h"
 using namespace std;
 using namespace Eigen;
+using namespace QPanda;
 
-VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b);
-VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b);
+VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b, DecompositionMode decompose_method=DecompositionMode::QR);
+VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b, DecompositionMode decompose_method=DecompositionMode::QR);
 
 
 // ↓↓ keep signature for the contest solution
