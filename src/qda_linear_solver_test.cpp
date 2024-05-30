@@ -2,59 +2,56 @@
 #include "qda_linear_solver.h"
 #include "utils.h"
 
-struct test_res {
-  float fidelity;
-  float time;
-};
-
-test_res test_linear_solver_ideal(int T=1000) {
-  float fid = 0.0;
-  clock_t ts = 0;
-  for (int i = 0; i < T; i++) {
-    MatrixXd A = MatrixXd::Random(2, 2);
-    VectorXd b = VectorXd::Random(2);
-    double b_norm = b.norm();
-    A = A / b_norm;
-    b = b / b_norm;
-    clock_t s = clock();
-    VectorXcd x = linear_solver_ideal(A, b);
-    ts += clock() - s;
-    VectorXcd x_r = A.colPivHouseholderQr().solve(b);
-    fid += abs(x_r.adjoint().dot(x));
-  }
-  return {fid / T, ts_to_ms(ts / T)};
-}
-
-test_res test_linear_solver_contest(int T=1000) {
-  float fid = 0.0;
-  clock_t ts = 0;
-  for (int i = 0; i < T; i++) {
-    MatrixXd A = MatrixXd::Random(2, 2);
-    VectorXd b = VectorXd::Random(2);
-    double b_norm = b.norm();
-    A = A / b_norm;
-    b = b / b_norm;
-    clock_t s = clock();
-    VectorXcd x = linear_solver_contest(A, b);
-    ts += clock() - s;
-    VectorXcd x_r = A.colPivHouseholderQr().solve(b);
-    fid += abs(x_r.adjoint().dot(x));
-  }
-  return {fid / T, ts_to_ms(ts / T)};
-}
-
 
 int main() {
   srand((unsigned)time(NULL)); 
 
+  int n_methods = 3;
   int T = 1000;
-  test_res res;
+
+  vector<clock_t> ts;
+  vector<float> fid;
+  for (int i = 0; i < n_methods; i++) {
+    ts.push_back(0);
+    fid.push_back(0.0);
+  }
+
+  VectorXcd x_r;
+  VectorXcd x;
+  clock_t s = -1;
+  for (int i = 0; i < T; i++) {
+    MatrixXd A = MatrixXd::Random(2, 2);
+    VectorXd b = VectorXd::Random(2);
+    double b_norm = b.norm();
+    A = A / b_norm;
+    b = b / b_norm;
+
+    // classic (ref)
+    x_r = A.colPivHouseholderQr().solve(b);
+
+    // ideal
+    s = clock();
+    x = linear_solver_ideal(A, b, DecompositionMode::QSD);
+    ts[0] += clock() - s;
+    fid[0] += abs(x_r.adjoint().dot(x));
+
+    // contest
+    s = clock();
+    x = linear_solver_contest(A, b, DecompositionMode::QSD);
+    ts[1] += clock() - s;
+    fid[1] += abs(x_r.adjoint().dot(x));
+
+    // ours
+    s = clock();
+    x = linear_solver_ours(A, b, DecompositionMode::QSD);
+    ts[2] += clock() - s;
+    fid[2] += abs(x_r.adjoint().dot(x));
+  }
 
   puts("[test_linear_solver_ideal]");
-  res = test_linear_solver_ideal(T);
-  printf("  fidelity %.7f, time %.3f ms\n", res.fidelity, res.time);
-
+  printf("  fidelity: %.7f, time: %.3f ms\n", fid[0] / T, ts_to_ms(ts[0] / T));
   puts("[test_linear_solver_contest]");
-  res = test_linear_solver_contest(T);
-  printf("  fidelity %.7f, time %.3f ms\n", res.fidelity, res.time);
+  printf("  fidelity: %.7f, time: %.3f ms\n", fid[1] / T, ts_to_ms(ts[1] / T));
+  puts("[test_linear_solver_ours]");
+  printf("  fidelity: %.7f, time: %.3f ms\n", fid[2] / T, ts_to_ms(ts[2] / T));
 }

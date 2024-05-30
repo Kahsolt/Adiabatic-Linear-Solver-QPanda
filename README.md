@@ -19,9 +19,9 @@ Reproducing the [Quantum Linear Systems Solver via Discrete Adiabatic [arXiv:211
   - modify `QPANDA_INSTALL_DIR` in [CMakeLists.txt](./CMakeLists.txt) according to your installation
 - just run `make` or `bash ./run.sh` 😀🎉
 
-This is the demo run:
+This is the demo run for final linear solver solution:
 
-![demo](img/demo.png)
+![demo](img/LS_demo.png)
 
 ℹ Note that there are **two** folders containing source files:
 
@@ -33,7 +33,8 @@ This is the demo run:
 
 ⚪ block encoding
 
-👉 详细文档参见 [DOC.md](DOC.md)
+👉 详细文档参见 [BlockEncoding.md](doc/BlockEncoding.md)  
+😈 BlockEncoding 可能是一个非常危险的突破性技术：以后人们只是基于线性代数去设计算法，然后调用 `block_encode + matrix_decompose` 来在量子计算机上运行一切程序  
 
 | Method | restriction | gate implementation | sub-normalizer | ancilla qubits | complex-value support |
 | :-: | :-: | :-: | :-: | :-: | :-: |
@@ -42,7 +43,13 @@ This is the demo run:
 | [ARCSIN](https://arxiv.org/abs/2402.17529) | $ d $-sparse $, \|a_{ij}\| \le 1 $ | $ U_A = (I_1 \otimes H^{\otimes n} \otimes I_n) (I_1 \otimes \mathrm{SWAP}) O_A (X \otimes H^{\otimes n} \otimes I_n) $ | $ 1 / 2^n $ | $ n + 1 $ | ✅ |
 | [FABLE](https://arxiv.org/abs/2205.00081) | $ d $-sparse $, \|a_{ij}\| \le 1 $ | $ U_A = (I_1 \otimes H^{\otimes n} \otimes I_n) (I_1 \otimes \mathrm{SWAP}) O_A (I_1 \otimes H^{\otimes n} \otimes I_n) $ | $ 1 / 2^n $ | $ n + 1 $ | ❌ |
 
+| Precision Check | Generated Circuit |
+| :-: | :-: |
+| ![demo](img/BE_unittest.png) | ![demo](img/BE_demo.png) |
+
 ⚪ adiabatic-inspired linear system solver
+
+👉 详细文档参见 [LinearSolver.md](doc/LinearSolver.md)  
 
 | Method | year | sched func $ f(s) $ | time complexity | query complexity (EF paper listed) | query complexity (QDA paper listed) |
 | :-: | :-: | :-: | :-: | :-: | :-: |

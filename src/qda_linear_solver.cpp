@@ -31,10 +31,50 @@ inline void init_consts() {
   is_init_consts = true;
 }
 
-inline MatrixXcd exp_iHt_approx(MatrixXcd H, float t=1.0) {
-  // exp(-iHt) ~= I - iH
+MatrixXcd EF_R_l(MatrixXcd H) {
+  const int lmbd = 16;    // 阶数
+  const double delta = 0.1;
+  const double delta2 = delta * delta;
+  const int sign = 1; // := pow(-1, lmbd)
+
+  auto T_l = [=](double x) -> double {
+    if (-1 <= x && x <= 1) return cos(lmbd * acos(x));
+    else if (x > 1)        return cosh(lmbd * acosh(x));
+    else if (x < -1)       return sign * cosh(lmbd * acosh(-x));
+  };
+  auto t = [=](double x) -> double {
+    return (x * x - delta2) / (1 - delta2);
+  };
+  auto t0 = t(0);
+  auto R_l = [=](double x) -> double {
+    auto p = T_l(-1 + 2 * t(x));
+    auto q = T_l(-1 + 2 * t0);
+    return p / q;
+  };
+
+  ComplexEigenSolver<MatrixXcd> solver;
+  solver.compute(H);
+  if (solver.info() != Eigen::Success) abort();
+  auto V = solver.eigenvectors();
+  auto D = solver.eigenvalues();
+  VectorXcd R_l_D(D.size());
+  for (int i = 0; i < D.size(); i++)
+    R_l_D(i) = R_l(D(i).real());
+  return V * R_l_D.asDiagonal() * V.inverse();
+}
+
+inline MatrixXcd exp_iHt_approx(MatrixXcd H, float t=1.0, int order=1) {
+  // https://en.wikipedia.org/wiki/Matrix_exponential
+  // exp(-iHt) ~= I - iHt + (-iHt)^2 / 2 + ... + (-iHt)^k / k!
   int N = H.rows();
-  return MatrixXcd::Identity(N, N) - dcomplex(0, 1) * H * t;
+  MatrixXcd A = MatrixXcd::Identity(N, N);
+  MatrixXcd _iHt = dcomplex(0, -1) * H * t;
+  int fac = 1;
+  for (int o = 1; o <= order; o++) {
+    fac *= o;
+    A += _iHt.pow(o) / fac;
+  }
+  return A;
 }
 
 inline QCircuit matrix_decompose(DecompositionMode method, MatrixXcd mat, QVec qv) {
@@ -97,11 +137,11 @@ VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b, DecompositionMode decomp
   // result
   qs = QStat(qs.begin(), qs.begin() + 2);  // project only the first qubit
   VectorXcd state = Map<VectorXcd>(qs.data(), qs.size());
-  return state;
+  return state /= state.norm();
 }
 
 
-// The basic implementation strictly follows all contest-specified restrictions (?
+// The basic implementation strictly follows all contest-specified restrictions :(
 VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b, DecompositionMode decompose_method=DecompositionMode::QR) {
   init_consts();
 
@@ -111,28 +151,14 @@ VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b, DecompositionMode deco
   MatrixXcd H0 = kroneckerProduct(PauliX, Qb);
   MatrixXcd H1 = kroneckerProduct(PauliP, A * Qb) + kroneckerProduct(PauliM, Qb * A);
   VectorXcd init_state = kroneckerProduct(v0, b);
-  /* naive AQC
   auto H_s = [&](float s) -> MatrixXcd { return (1 - s) * H0 + s * H1; };
-  */
-  /* AQC(P) */
-  float k = 5.82842712474619;   // condition_number of the original A
-  float p = 2.0;
-  auto f_ = [&](float s) -> float {
-    float t = 1 + s * (pow(k, p - 1) - 1);
-    return k / (k - 1) * (1 - pow(t, 1 / (1 - p)));
-  };
-  auto H_s = [&](float s) -> MatrixXcd {
-    float f_s = f_(s);
-    return (1 - f_s) * H0 + f_s * H1;
-  };
-  
+
   // gated quantum computing
   const int S = 200;    // restrict 1: fixed as contest required
-  const int T = 10;     // restrict 2: fixed as contest required (?)
+  const int T = 1;      // restrict 2: fixed as contest required (?)
   const size_t n_qubit = ceil(log2(H0.rows()));   // since we're going to block-encode the hamiltonion H(s), not the matrix A in equation
   const size_t n_ancilla = 1;   // NOTE: modify this according to your block_encode method :)
   const size_t n_qubit_ex = n_ancilla + n_qubit;
-  const float lmbd = pow(2, N);
   CPUQVM qvm;
   qvm.setConfigure({n_qubit_ex, n_qubit_ex});
   qvm.init();
@@ -161,7 +187,77 @@ VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b, DecompositionMode deco
   // result
   qs = QStat(qs.begin(), qs.begin() + 2);  // project only the first qubit
   VectorXcd state = Map<VectorXcd>(qs.data(), qs.size());
-  return state;
+  return state /= state.norm();
+}
+
+
+// The optimized implementation with various tricks for the best precision :)
+VectorXcd linear_solver_ours(MatrixXcd A, VectorXcd b, DecompositionMode decompose_method=DecompositionMode::QR) {
+  init_consts();
+
+  // time-dependent hamiltonian
+  int N = A.rows();
+  MatrixXcd Qb = MatrixXcd::Identity(N, N) - b * b.adjoint();
+  MatrixXcd H0 = kroneckerProduct(PauliX, Qb);
+  MatrixXcd H1 = kroneckerProduct(PauliP, A * Qb) + kroneckerProduct(PauliM, Qb * A);
+  VectorXcd init_state = kroneckerProduct(v0, b);
+  // AQC(P) schedule
+  float k = 5.82842712474619;   // condition_number of the original A
+  float p = 2.0;
+  auto f_ = [&](float s) -> float {
+    float t = 1 + s * (pow(k, p - 1) - 1);
+    return k / (k - 1) * (1 - pow(t, 1 / (1 - p)));
+  };
+  auto H_s = [&](float s) -> MatrixXcd {
+    float f_s = f_(s);
+    return (1 - f_s) * H0 + f_s * H1;
+  };
+
+  // gated quantum computing
+  const int S = 300;    // many logical steps 
+  const int T = 10;     // enough long physical time of each step
+  const size_t n_qubit = ceil(log2(H0.rows()));   // since we're going to block-encode the hamiltonion H(s), not the matrix A in equation
+  const size_t n_ancilla = 1;   // NOTE: modify this according to your block_encode method :)
+  const size_t n_qubit_ex = n_ancilla + n_qubit;
+  CPUQVM qvm;
+  qvm.setConfigure({n_qubit_ex, n_qubit_ex});
+  qvm.init();
+  QVec qv = qvm.qAllocMany(n_qubit_ex);
+  QCircuit qcir;
+  // init state
+  VectorXcd anc0 = v0;
+  for (int i = 1; i < n_ancilla; i++) anc0 = kroneckerProduct(anc0, v0).eval();   // NOTE: avoid aliasing effect
+  VectorXd init_state_ex = kroneckerProduct(anc0, init_state).real();
+  vector<double> amplitude(init_state_ex.data(), init_state_ex.data() + init_state_ex.size());
+  qcir << amplitude_encode(qv, amplitude);   // |anc_BE,0,b>
+  // adiabatic evolution
+  for (int s = 1; s <= S; s++) {
+    MatrixXcd H = H_s(float(s) / S);
+    MatrixXcd iHt = exp_iHt_approx(H, T);
+    iHt = normalize_QSVT(iHt);
+    MatrixXcd U_iHt = block_encoding_QSVT(iHt).unitary;
+    QCircuit qc_TE = matrix_decompose(decompose_method, U_iHt, qv);
+    qcir << qc_TE << BARRIER(qv);
+  }
+  // eigen filter
+  MatrixXcd EF = EF_R_l(H1);
+  //EF = normalize_QSVT(EF);
+  MatrixXcd U_EF = block_encoding_QSVT(EF).unitary;
+  if (false) {
+    auto err = (U_EF * U_EF.adjoint() - MatrixXcd::Identity(U_EF.rows(), U_EF.cols())).cwiseAbs().sum();
+    cout << "err: " << err << endl;   // err: 1e-9, 精度不够 QR 分解 =_=
+  }
+  QCircuit qc_EF = matrix_decompose(DecompositionMode::QSD, U_EF, qv);
+  qcir << qc_EF << BARRIER(qv);
+  // final state
+  QProg qprog = createEmptyQProg() << qcir;
+  qvm.directlyRun(qprog);
+  QStat qs = qvm.getQState();
+
+  // result
+  qs = QStat(qs.begin(), qs.begin() + 2);  // project only the first qubit
+  VectorXcd state = Map<VectorXcd>(qs.data(), qs.size());
+  return state /= state.norm();
 }
 
 
@@ -177,9 +273,8 @@ qdals_res qda_linear_solver(MatrixXcd A, VectorXcd b) {
   VectorXcd s_r = A.colPivHouseholderQr().solve(b);
   VectorXcd x_r = s_r / s_r.norm();
   // quantum solution |x>
-  auto b_norm = b.norm();   // pre-process norm
-  VectorXcd x = linear_solver_contest(A / b_norm, b / b_norm, DecompositionMode::QR);
-  x /= x.norm();            // post-process re-norm
+  auto b_norm = b.norm();
+  VectorXcd x = linear_solver_ours(A / b_norm, b / b_norm, DecompositionMode::QR);
   // fidelity <x_r|x>
   dcomplex fidelity = x_r.adjoint().dot(x);
 

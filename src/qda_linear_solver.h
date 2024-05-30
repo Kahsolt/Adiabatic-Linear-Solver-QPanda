@@ -10,6 +10,7 @@ using namespace QPanda;
 
 VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b, DecompositionMode decompose_method=DecompositionMode::QR);
 VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b, DecompositionMode decompose_method=DecompositionMode::QR);
+VectorXcd linear_solver_ours(MatrixXcd A, VectorXcd b, DecompositionMode decompose_method=DecompositionMode::QR);
 
 
 // ↓↓ keep signature for the contest solution
