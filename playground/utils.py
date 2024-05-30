@@ -69,7 +69,7 @@ b = bv / b_norm
 x = np.asarray([[1, 1]]).T / np.sqrt(2)
 
 
-''' Utils '''
+''' Matrix Utils '''
 
 is_posdef = lambda A: all([ev > 0 for ev in np.linalg.eigvals(A)])
 is_hermitian = lambda H: np.allclose(H, H.conj().T)
@@ -111,7 +111,7 @@ def print_matrix(A:ndarray, name:str='A'):
   print(A.round(4))
 
 
-''' Visual Utils '''
+''' QState & Bloch Utils '''
 
 Stat = ndarray
 Ham = ndarray
@@ -197,7 +197,7 @@ def animate_cheap_bloch_plot(xlist:List[float], ylist:List[float], tlist:List[st
     plt.show()
 
 
-''' Schedule Functiom Utils '''
+''' Schedule Function Utils '''
 
 # RM from arXiv:1805.10549
 def make_f_s_RM(κ:float=κ, debug:bool=False):
@@ -273,5 +273,46 @@ def vis_schedulers():
   plt.show()
 
 
+''' Eigen Filter Utils '''
+
+# https://zh.wikipedia.org/wiki/切比雪夫多项式
+def T_l(x:float, l:int) -> float:
+  if -1 <= x <= 1: return np.cos(l * np.arccos(x))
+  elif x > 1:      return np.cosh(l * np.arccosh(x))
+  elif x < -1:     return (-1)**l * np.cosh(l * np.arccosh(-x))
+
+# arXiv:1910.14596 Fig. 1, 0 < Δ ≤ 1/sqrt(12) = 0.28867513459481
+def R_l(x:float, l:int, Δ:float=0.1) -> float:
+  t = lambda x: (x**2 - Δ**2) / (1 - Δ**2)
+  p = T_l(-1 + 2 * t(x), l)
+  q = T_l(-1 + 2 * t(0), l)
+  return p / q
+
+# arXiv:2305.11352 Eq. 16, 可用 QSVT 线路实现
+# R_2l(H, Δ) |ψ0> = |ψ0> for all |ψ0> in nullspace(H)
+def R_2l(H:ndarray) -> ndarray:
+  if not 'dynamic':   # follow arXiv:2305.11352
+    Δ = 1 / condition_number(H)
+    α_H = 1   # subfactor of block-encoding
+    l = int(np.ceil(α_H / Δ * np.log2(2 / ε)) / 2)
+  else:               # follow arXiv:1910.14596 
+    Δ = 0.1
+    l = 16
+  D, V = np.linalg.eig(H)
+  return V @ np.diag([R_l(x.real, l, Δ) for x in D]) @ np.linalg.inv(V)
+
+
+def vis_chebyshevs():
+  import matplotlib.pyplot as plt
+  plt.figure(figsize=(6, 6))
+  xs = np.linspace(-1, 1, 1000)
+  for l in [8, 16, 32, 48]:    # 阶数
+    plt.plot(xs, [R_l(x, l) for x in xs], label=f'n={l}')
+  plt.suptitle('R_l(x, Δ): chebyshev filter')
+  plt.legend()
+  plt.show()
+
+
 if __name__ == '__main__':
   vis_schedulers()
+  vis_chebyshevs()

@@ -244,22 +244,13 @@ print()
 [Eigenvalue Filtering]
 1. 先用 AQC(p) 跑出来一个近似解 |\hat{x0}> = \gamma_0 |0,x> + \gamma_1 |1,b> + |⊥>
 2. 纯线性代数的思路，乘上一个矩阵进行过滤 R_l(H1/d; 1/(dk)) |\hat{x0}> 将会去除无关成分 |⊥>
-  - R_l(x,Δ) 是一个标量函数，如何定义它的矩阵版本 R_l(H,Δ)? element-wise??
-  - |x> ~= P_{λ=0}(H1)|x0>
+  - R_l(x,Δ) 是一个标量函数，定义它的矩阵版本 R_l(H,Δ) 为针对特征分解中的谱值进行逐元素操作 (这是一个 QSVT 操作) 
+  - |x> ~= P_{λ}(H1)|x0>, 此处 |x> 是 H 的零空间中第 λ 个向量，|x0> 和 |x> 非正交
 3. 对第一辅助比特进行测量，将有 \gamma_0^2 概率去除误差成分 |1,b> 而得到目标 |0,x>
 '''
 def arXiv_1910_14596_EF():
   print('[EF(AQC)] O(κlog(1/ε))')
-  # https://zh.wikipedia.org/wiki/切比雪夫多项式
-  def T_l(x:float, l:float=16) -> float:
-    if -1 < x < 1: return np.cos(l * np.arccos(x))
-    if x > 1:      return np.cosh(l * np.arccosh(x))
-    if x < -1:     return (-1)**l * np.cosh(l * np.arccosh(-x))
-  def R_l(x:float, l:float=16, Δ:float=0.1) -> float:
-    t = lambda x: (x**2 - Δ**2) / (1 - Δ**2)
-    p = T_l(-1 + 2*(t(x)), l)
-    q = T_l(-1 + 2*(t(0)), l)
-    return p / q
+  print('>> please see `vis_eigen_filter_ls.py`')
 
   print('[EF(QZE)] O(κlog(1/ε))')
   # Eq. 14
