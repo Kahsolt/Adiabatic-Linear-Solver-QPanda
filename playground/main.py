@@ -44,7 +44,6 @@ ref:
   4. 计算保真度
 '''
 
-from functools import partial
 from tqdm import tqdm
 from scipy.linalg import expm
 import pennylane as qml
@@ -80,6 +79,14 @@ use_approx = True
 S = 200   # 演化步数 (根据赛题要求固定)
 T = 10    # 每步演化时长
 
+if f_s_method == 'linear':
+  f = make_f_s_linear()
+elif f_s_method == 'poly':
+  f = make_f_s_AQC_P(f_s_p)
+elif f_s_method == 'exp':
+  f = make_f_s_AQC_EXP()
+else: pass
+
 if H_s_method == 'RM':
   A_s = lambda s: (1 - s) * np.kron(σz, I_(nq)) + s * np.kron(σx, A)
   b_bar: ndarray = np.kron(h0, b)
@@ -104,15 +111,6 @@ elif H_s_method == 'AQC':
   final_qs = np.kron(v0, x)
 else: raise ValueError
 
-if f_s_method == 'linear':
-  f = lambda s: s
-elif f_s_method == 'poly':
-  def f_(p:float, s:float) -> float:
-    t = 1 + s * (κ**(p-1) - 1)
-    return κ / (κ - 1) * (1 - t**(1 / (1 - p)))
-  f = partial(f_, f_s_p)
-else: pass
-
 if use_approx:
   n_be_ancilla = 1
 else:
@@ -126,9 +124,9 @@ def run(S:int, T:int, log:bool=True) -> float:
     anc0 = np.kron(anc0, v0)
   # 制备初态
   qs = np.kron(anc0, init_qs) if use_approx else init_qs
-  if log: print('init state:', qs.T[0].round(4))
+  if log: print('init state:', state_vec(qs))
   # 绝热演化
-  for s in range(S):
+  for s in range(1, 1+S):
     H = H_s(s / S)  # NOTE: 此处直接模拟哈密顿量的和，暂不用 trotter 分解
     if use_approx:
       exp_iHt = exp_iHt_approx(H, T)
@@ -137,12 +135,12 @@ def run(S:int, T:int, log:bool=True) -> float:
       U_iHt = expm(-1j*H*T)
     qs = U_iHt @ qs
   # 读取末态
-  if log: print('final state:', qs.T[0].round(4))
+  if log: print('final state:', state_vec(qs))
   x_ref = np.kron(anc0, final_qs) if use_approx else final_qs
-  if log: print('ref state:', x_ref.T[0].round(4))
-  fidelity = x_ref.conj().T @ qs
-  if log: print('fidelity:', fidelity.item())
-  return abs(fidelity.item())
+  if log: print('ref state:', state_vec(x_ref))
+  fidelity = get_fidelity(qs, x_ref)
+  if log: print('fidelity:', fidelity)
+  return fidelity
 
 
 def run_grid():

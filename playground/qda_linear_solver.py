@@ -8,8 +8,7 @@
 # arXiv:1910.14596: Eigen-Filter
 # arXiv:2111.08152 Chap. IV: QDA, Walk operator, Block Encoding H(s)
 
-from functools import partial
-from typing import Tuple, Callable
+from typing import Callable
 
 from scipy.linalg import expm
 from utils import *
@@ -90,28 +89,8 @@ def arXiv_1805_10549_RM():
     assert np.allclose(x_s(0), b)
     assert np.allclose(x_s(1), x)
 
-  # Eq. 5~7
-  def s_v(v:float) -> float:
-    t = np.sqrt(1 + κ**2) / (np.sqrt(2) * κ)
-    p = np.exp(v * t) + 2 * κ**2  - κ**2 * np.exp(-v * t)
-    q = 2 * (1 + κ**2)
-    return p / q
-  def v_lim() -> Tuple[float, float]:
-    t = np.sqrt(1 + κ**2) / (np.sqrt(2) * κ)
-    v_a = (1 / t) * np.log(κ * np.sqrt(1 + κ**2) - κ**2)
-    v_b = (1 / t) * np.log(    np.sqrt(1 + κ**2) + 1)
-    return v_a, v_b
-  v_a, v_b = v_lim()
-  print('v_a:', v_a)
-  print('v_b:', v_b)
-  # Eq. 8
-  q_ref = np.log(κ)**2 / ε    # step count, 310.7277599582784
-  q = int(q_ref)
-  print(f'q: {q} (ref: {q_ref})')
-  v_j = np.linspace(v_a, v_b, q+2)    # [v_a, v1, ... vq, ... v_b]
-  assert np.isclose(s_v(v_a), 0.0)
-  assert np.isclose(s_v(v_b), 1.0)
-  print()
+  # Eq. 5~7, schedule for s_j = f_j(j) for j in vrng [1, q]
+  q, f_j = make_f_s_RM(debug=True)
 
   # arXiv:1311.7073
   # "Δ is the spectral gap of H, that is, the smallest (absolute) difference
@@ -129,16 +108,15 @@ def arXiv_1805_10549_RM():
   print('>> [Algo 1] O(κ^2*log(κ)/ε)')
   # init state: |x(0)> = |-,b>
   qs = np.kron(h1, b)
-  print('init state:', qs.T[0].round(4))
+  print('init state:', state_vec(qs))
   for j in range(1, q+1):
-    s_j = s_v(v_j[j])
+    s_j = f_j(j)
     t_j = np.random.uniform(low=0, high=2*np.pi/Δ_star(s_j))
     U_H = expm(-1j*t_j*H_s(s_j))
     qs = U_H @ qs
-  print('final state:', qs.T[0].round(4))
+  print('final state:', state_vec(qs))
   x_ref = x_s(1)
-  fidelity: ndarray = x_ref.conj().T @ qs
-  print('fidelity:', fidelity.item())
+  print('fidelity:', get_fidelity(qs, x_ref))
 
   # Eq. 10
   # H'(s) := σ+ ⊗ (A(s) P_{\bar{b}}^⊥) + σ- ⊗ (P_{\bar{b}}^⊥ A(s))
@@ -155,16 +133,15 @@ def arXiv_1805_10549_RM():
   print('>> [Algo 2] O(κ*log(κ)/ε)')
   # init state: |0>|x(0)>
   qs = np.kron(v0, x_s(0))
-  print('init state:', qs.T[0].round(4))
+  print('init state:', state_vec(qs))
   for j in range(1, q+1):
-    s_j = s_v(v_j[j])
+    s_j = f_j(j)
     t_j = np.random.uniform(low=0, high=2*np.pi/np.sqrt(Δ_star(s_j)))
     U_H = expm(-1j*t_j*H_hat_s(s_j))
     qs = U_H @ qs
-  print('final state:', qs.T[0].round(4))
+  print('final state:', state_vec(qs))
   x_ref = np.kron(v0, x_s(1))
-  fidelity = x_ref.conj().T @ qs
-  print('fidelity:', fidelity.item())
+  print('fidelity:', get_fidelity(qs, x_ref))
 
 print('=' * 42)
 print('[arXiv_1805_10549_RM]')
@@ -202,7 +179,7 @@ def arXiv_1909_05500_AQC():
     np.kron(v1, b),   # \bar{b}
   ]
   x_ref = H1_nullspace[0]
-  print('final state (ideal):', x_ref.T[0].round(4))
+  print('final state (ideal):', state_vec(x_ref))
   print()
 
   def run_with_sched_func(f:Callable[[float], float], sched:str='linear'):
@@ -217,10 +194,7 @@ def arXiv_1909_05500_AQC():
     # where |\tilde{x}(s=0)> = |\tilde{b}> and |\tilde{x}(s=1)> = |\tilde{x}> for **any** s
     # hence |\tilde{x}(s)> is the **desired adiabatic path**
 
-    # 制备初态: |\tilde{x}(0)> = |\tilde{b}> = |0,b>
-    qs = H0_nullspace[0]
-    print('init state:', qs.T[0].round(4))
-    # 含时演化
+    # 演化参数
     if sched == 'linear':   # at the end of Chap. 2
       T_ref = κ**3 / ε
     elif sched == 'poly':   # near Eq. 7
@@ -231,44 +205,34 @@ def arXiv_1909_05500_AQC():
     print(f'T: {T} (ref: {T_ref})')
     S = 1000                # 手工指定迭代次数 ~O(κ^2)，越大精度越高
     h = 1 / S               # 每步演化的物理时间 (这是一个神秘的超参，过大过小都会直接结果不对！！)
-    for s in range(S):
+    # 制备初态: |\tilde{x}(0)> = |\tilde{b}> = |0,b>
+    qs = H0_nullspace[0]
+    print('init state:', state_vec(qs))
+    # 含时演化
+    for s in range(1, 1+S):
       H = H_s(s / S)        # NOTE: 此处直接模拟哈密顿量的和，暂不用 trotter 分解
       U_iHt = expm(-1j*H*(T*h))
       qs = U_iHt @ qs
     # 读出末态: |ψ_T(1)> = |\tilde{x}>, 解出 |x>
-    print('final state:', qs.T[0].round(4))
-    fidelity = x_ref.conj().T @ qs
-    print('fidelity:', fidelity.item())
+    print('final state:', state_vec(qs))
+    print('fidelity:', get_fidelity(qs, x_ref))
 
   print('[vanilla_AQC] O(κ^3/ε)')
-  f = lambda s: s
-  run_with_sched_func(f, 'linear')
+  run_with_sched_func(make_f_s_linear(), 'linear')
   print('-' * 42)
 
   # f is ROC-curve-like
   print('[AQC(P)] O(κ/ε) ~ O(κ*log(κ)/ε)')
-  def f_(p:float, s:float) -> float:
-    t = 1 + s * (κ**(p-1) - 1)
-    return κ / (κ - 1) * (1 - t**(1 / (1 - p)))
-  run_with_sched_func(partial(f_, 1.001), 'poly')
-  run_with_sched_func(partial(f_, 1.25),  'poly')
-  run_with_sched_func(partial(f_, 1.5),   'poly')
-  run_with_sched_func(partial(f_, 1.75),  'poly')
-  run_with_sched_func(partial(f_, 2),     'poly')
+  run_with_sched_func(make_f_s_AQC_P(1.001), 'poly')
+  run_with_sched_func(make_f_s_AQC_P(1.25),  'poly')
+  run_with_sched_func(make_f_s_AQC_P(1.5),   'poly')
+  run_with_sched_func(make_f_s_AQC_P(1.75),  'poly')
+  run_with_sched_func(make_f_s_AQC_P(2),     'poly')
   print('-' * 42)
 
   # f is sigmoid-like
   print('[AQC(EXP)] O(κ*log^2(κ)*log^4(log(κ)/ε))')
-  def intg(s_lim:float, ds:float=1e-2):
-    sum = 0.0
-    s = ds
-    while s < s_lim:
-      sum += np.exp(-1 / (s * (1 - s))) * ds
-      s += ds
-    return sum
-  c_e = intg(1)
-  f = lambda s: intg(s) / c_e
-  run_with_sched_func(f, 'exp')
+  run_with_sched_func(make_f_s_AQC_EXP(), 'exp')
 
 print('=' * 42)
 print('[arXiv_1909_05500_AQC]')
@@ -315,10 +279,7 @@ def arXiv_1910_14596_EF():
 '''
 def arXiv_2111_08152_QDA():
   # Eq.114, the AQC(P) borrowed from arXiv:1909.05500
-  def f_(p:float, s:float) -> float:
-    t = 1 + s * (κ**(p-1) - 1)
-    return κ / (κ - 1) * (1 - t**(1 / (1 - p)))
-  f = partial(f_, 1.5)
+  f = make_f_s_AQC_P(1.5)
 
   if not 'Appendix E':
     # NOTE: 以下为附录 E 的内容，描述了系数矩阵 A 是以块编码的形式 U_A 给出时，如何进一步块编码 H(s)
@@ -412,10 +373,9 @@ def arXiv_2111_08152_QDA():
     s = t / T
     qs = W_T(s) @ qs
   # 读出末态: |ψ_T(1)> = |\tilde{x}>, 解出 |x>
-  print('final state:', qs.T[0].round(4))
+  print('final state:', state_vec(qs))
   x_ref = np.kron(v1, np.kron(h1, x))
-  fidelity = x_ref.conj().T @ qs
-  print('fidelity:', fidelity.item())
+  print('fidelity:', get_fidelity(qs, x_ref))
 
 # FIXME: NotImplemented
 #print('=' * 42)

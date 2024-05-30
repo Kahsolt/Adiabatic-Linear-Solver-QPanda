@@ -82,7 +82,7 @@ VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b, DecompositionMode decomp
   vector<double> amplitude(init_state.data(), init_state.data() + init_state.size());
   qcir << amplitude_encode(qv, amplitude);  // premise 3: correct initial state preparation
   // adiabatic evolution
-  for (int s = 0; s < S; s++) {
+  for (int s = 1; s <= S; s++) {
     MatrixXcd H = H_s(float(s) / S);  // premise 4: ideal time-independent hamiltonion schedule
     MatrixXcd iHt = dcomplex(0, -1) * H * T;
     MatrixXcd U_iHt = iHt.exp();      // premise 5: ideal time evolution operator
@@ -145,7 +145,7 @@ VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b, DecompositionMode deco
   vector<double> amplitude(init_state_ex.data(), init_state_ex.data() + init_state_ex.size());
   qcir << amplitude_encode(qv, amplitude);   // |anc_BE,0,b>
   // adiabatic evolution
-  for (int s = 0; s < S; s++) {
+  for (int s = 1; s <= S; s++) {
     MatrixXcd H = H_s(float(s) / S);
     MatrixXcd iHt = exp_iHt_approx(H, T);   // restrict 3: approx as contest required
     iHt = normalize_QSVT(iHt);

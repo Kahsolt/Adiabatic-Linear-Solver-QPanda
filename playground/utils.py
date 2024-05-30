@@ -4,6 +4,7 @@
 
 import random
 from pathlib import Path
+from functools import partial
 from typing import List, Tuple
 
 import numpy as np
@@ -147,8 +148,8 @@ def state_str(psi:Stat) -> str:
   if sign2 == '-': d = -d
   return f'{a:.3f} |0> {sign1} ({c:.3f} {sign2} {d:.3f}i) |1>'
 
-def state_vec(psi:Stat) -> Stat:
-  return psi.T[0]
+def state_vec(psi:Stat) -> List[complex]:
+  return psi.T[0].round(4).tolist()
 
 def drop_gphase(psi:Stat) -> Stat:
   return psi * (psi[0].conj() / np.abs(psi[0]))
@@ -194,3 +195,83 @@ def animate_cheap_bloch_plot(xlist:List[float], ylist:List[float], tlist:List[st
     print(f'>> Saved to {fp}')
   else:
     plt.show()
+
+
+''' Schedule Functiom Utils '''
+
+# RM from arXiv:1805.10549
+def make_f_s_RM(κ:float=κ, debug:bool=False):
+  # Eq. 5~7
+  def s_v(v:float) -> float:
+    t = np.sqrt(1 + κ**2) / (np.sqrt(2) * κ)
+    p = np.exp(v * t) + 2 * κ**2  - κ**2 * np.exp(-v * t)
+    q = 2 * (1 + κ**2)
+    return p / q
+  def v_lim() -> Tuple[float, float]:
+    t = np.sqrt(1 + κ**2) / (np.sqrt(2) * κ)
+    v_a = (1 / t) * np.log(κ * np.sqrt(1 + κ**2) - κ**2)
+    v_b = (1 / t) * np.log(    np.sqrt(1 + κ**2) + 1)
+    return v_a, v_b
+  v_a, v_b = v_lim()
+  if debug:
+    print('v_a:', v_a)
+    print('v_b:', v_b)
+  # Eq. 8
+  q_ref = np.log(κ)**2 / ε    # step count, 310.7277599582784
+  q = int(q_ref)
+  if debug: print(f'q: {q} (ref: {q_ref})')
+  v_j = np.linspace(v_a, v_b, q+2)    # [v_a, v1, ... vq, ... v_b]
+  assert np.isclose(s_v(v_a), 0.0)
+  assert np.isclose(s_v(v_b), 1.0)
+  return q, (lambda j: s_v(v_j[j]))
+
+# vanilla AQC from arXiv:1909.05500
+def make_f_s_linear():
+  return lambda s: s
+
+# AQC(P) from arXiv:1909.05500
+def make_f_s_AQC_P(p:float=1.5, κ:float=κ):
+  def f_(p:float, s:float) -> float:
+    t = 1 + s * (κ**(p-1) - 1)
+    return κ / (κ - 1) * (1 - t**(1 / (1 - p)))
+  return partial(f_, p)
+
+# AQC(EXP) from arXiv:1909.05500
+def make_f_s_AQC_EXP():
+  def intg(s_lim:float, ds:float=1e-3):   # ds is related to precision
+    sum = 0.0
+    s = ds
+    while s < s_lim:
+      sum += np.exp(-1 / (s * (1 - s))) * ds
+      s += ds
+    return sum
+  c_e = intg(1)   # normalizer
+  return lambda s: intg(s) / c_e
+
+
+def vis_schedulers():
+  q, f_j = make_f_s_RM()      ; f_s_RM          = [f_j(j)     for j in range(1, q+1)]
+  f_s = make_f_s_linear()     ; f_s_linear      = [f_s(s / q) for s in range(1, q+1)]
+  f_s = make_f_s_AQC_P(1.001) ; f_s_AQC_P_1_001 = [f_s(s / q) for s in range(1, q+1)]
+  f_s = make_f_s_AQC_P(1.5)   ; f_s_AQC_P_1_5   = [f_s(s / q) for s in range(1, q+1)]
+  f_s = make_f_s_AQC_P(2.0)   ; f_s_AQC_P_2_0   = [f_s(s / q) for s in range(1, q+1)]
+  f_s = make_f_s_AQC_P(3.0)   ; f_s_AQC_P_3_0   = [f_s(s / q) for s in range(1, q+1)]
+  f_s = make_f_s_AQC_EXP()    ; f_s_AQC_EXP     = [f_s(s / q) for s in range(1, q+1)]
+
+  # https://matplotlib.org/stable/gallery/color/named_colors.html
+  import matplotlib.pyplot as plt
+  plt.figure(figsize=(6, 6))
+  plt.plot(f_s_RM,          c='red',          label='RM')
+  plt.plot(f_s_linear,      c='blue',         label='linear')
+  plt.plot(f_s_AQC_P_1_001, c='royalblue',    label='AQC(P=1.001)')
+  plt.plot(f_s_AQC_P_1_5,   c='dodgerblue',   label='AQC(P=1.5)')
+  plt.plot(f_s_AQC_P_2_0,   c='deepskyblue',  label='AQC(P=2)')
+  plt.plot(f_s_AQC_P_3_0,   c='lightskyblue', label='AQC(P=3)')
+  plt.plot(f_s_AQC_EXP,     c='limegreen',    label='AQC(EXP)')
+  plt.suptitle('f(s): hamiltonion schedulers')
+  plt.legend()
+  plt.show()
+
+
+if __name__ == '__main__':
+  vis_schedulers()

@@ -7,7 +7,6 @@
 # - 阶段步数 S 必须足够多，每个时间片才能近似为稳态，此刻的含时哈密顿量 H(s) 才能近似为不含时
 # - 一旦态矢开始转圈圈就说明寄了，因为系统状态已经偏离当前 H(s) 的本征态了 :(
 
-from functools import partial
 from scipy.linalg import expm
 
 from utils import *
@@ -20,13 +19,10 @@ S = 300     # logical steps of hamiltonion change
 H0 = rand_hermitian(2)
 H1 = rand_hermitian(2)
 if not 'linear':    # linear behaves very bad :(
-  f = lambda s: s
-else:               # AQC(p) from arxiv:1805.10549
+  f = make_f_s_linear()
+else:               # AQC(p)
   κ = 4.2    # FIXME: 先随便xjb估一个kappa...
-  def f_(p:float, s:float) -> float:
-    t = 1 + s * (κ**(p-1) - 1)
-    return κ / (κ - 1) * (1 - t**(1 / (1 - p)))
-  f = partial(f_, 2.0)
+  f = make_f_s_AQC_P(2.0, κ)
 H_s = lambda s: (1 - f(s)) * H0 + f(s) * H1
 
 # system init/target state
@@ -40,7 +36,7 @@ psi = psi_0
 print('init state:', state_vec(psi))
 
 tht_list, phi_list, info_list = [], [], []
-for idx, s in enumerate(range(S)):
+for idx, s in enumerate(range(1, 1+S)):
   # cur state: |φ(t+Δt)> = exp(-iH(s)Δt) |φ(t)>
   # NOTE: this operation is iteratively accumulative!!
   Δt = T / S

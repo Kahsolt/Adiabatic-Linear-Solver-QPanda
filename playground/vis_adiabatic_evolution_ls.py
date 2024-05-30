@@ -4,12 +4,8 @@
 
 # 理解绝热演化用于解线性方程组 |x> = U_{AD}|b>
 
-from functools import partial
 import numpy as np
 from scipy.linalg import expm
-import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
-from matplotlib.animation import FuncAnimation 
 
 from utils import *
 
@@ -33,15 +29,12 @@ print('|x>: ', state_vec(x_gt))
 
 # adiabatic evolution hparams
 S = 1000
-T_ref = κ**2 / ε    # 这里的 T 相当的大 ~11.5w，可能是哈密顿量 H_s 编码方式导致的
+T_ref = κ**2 / ε    # 这里的 T 相当的大 ~11.5w，是矩阵条件数导致的
 T = int(T_ref)
 print(f'T: {T} (ref: {T_ref})')
 
-# arxiv:1805.10549, AQC(p) schedule
-def f_(p:float, s:float) -> float:
-  t = 1 + s * (κ**(p-1) - 1)
-  return κ / (κ - 1) * (1 - t**(1 / (1 - p)))
-f = partial(f_, 2.0)
+# AQC(p) schedule
+f = make_f_s_AQC_P(2.0, κ)
 
 # arxiv:1805.10549, simplified case when A is posdef
 A_s = lambda s: (1 - f(s)) * I_(nq) + f(s) * A
@@ -55,7 +48,7 @@ psi = b
 print('init state:', state_vec(psi))
 
 tht_list, phi_list, info_list = [], [], []
-for idx, s in enumerate(range(S)):
+for idx, s in enumerate(range(1, 1+S)):
   # cur state: |φ(t+Δt)> = exp(-iH(s)Δt) |φ(t)>
   # NOTE: this operation is iteratively accumulative!!
   Δt = T / S
