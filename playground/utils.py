@@ -9,6 +9,7 @@ from typing import List, Tuple
 
 import numpy as np
 from numpy import ndarray
+from scipy.linalg import expm
 
 BASE_PATH = Path(__file__).parent.parent
 IMG_PATH = BASE_PATH / 'img' ; IMG_PATH.mkdir(exist_ok=True)
@@ -311,6 +312,19 @@ def vis_chebyshevs():
   plt.suptitle('R_l(x, Δ): chebyshev filter')
   plt.legend()
   plt.show()
+
+
+''' QWalk Utils '''
+
+def W_T(H:ndarray, ver:str='report') -> ndarray:
+  if ver == 'essay':
+    return -np.eye(H.shape[0]) + H
+  if ver == 'report':
+    evs, vecs = np.linalg.eig(H)
+    H_arcsin = vecs @ np.diag(np.arcsin(evs)) @ np.linalg.inv(vecs)
+    return expm(-1j * H_arcsin)
+  if ver == 'no_arcsin':
+    return expm(-1j * H)
 
 
 if __name__ == '__main__':

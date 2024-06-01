@@ -58,9 +58,9 @@ This is the demo run for final linear solver solution:
 | [vanilla AQC](https://arxiv.org/abs/1909.05500) | 2019 | $ \text{linear} $ | $ \mathcal{O}(\kappa^3 / \epsilon) $ | $ \mathcal{O}(\kappa^2 / \epsilon) $ |  |
 | [AQC(P)](https://arxiv.org/abs/1909.05500)      | 2019 | $ \text{poly} $ | $ \mathcal{O}(\kappa / \epsilon) \sim \mathcal{O}(\kappa \mathrm{log}(\kappa) / \epsilon) $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa) \mathrm{loglog}(\kappa)) $ for $ \mathcal{O}(1) $ precision |  |
 | [AQC(EXP)](https://arxiv.org/abs/1909.05500)    | 2019 | $ \text{exp} $  | $ \mathcal{O}(\kappa \mathrm{log}^2(\kappa) \mathrm{log}^4(\mathrm{log}(\kappa)/\epsilon)) $ | $ \mathcal{O}(\kappa \mathrm{polylog}(1 / \epsilon)) $ | $ \mathcal{O}(\kappa \mathrm{polylog}(\kappa / \epsilon)) $ |
-| [EF](https://arxiv.org/abs/1910.14596) (partial implement)  | 2019 | $ \text{poly} $ |  | $ \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa / \epsilon)) $ |
-| [QDA](https://arxiv.org/abs/2111.08152) (not implemented) | 2021 | $ \text{poly} $ |  |  | $ \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $ |
-| [EQLS](https://arxiv.org/abs/2305.11352) (not implemented) | 2023 | $ \text{v-func} $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa / \epsilon)) $ |  |  |
+| [EF](https://arxiv.org/abs/1910.14596) (partial)  | 2019 | $ \text{poly} $ |  | $ \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa / \epsilon)) $ |
+| [QDA](https://arxiv.org/abs/2111.08152) (partial) | 2021 | $ \text{poly} $ |  |  | $ \mathcal{O}(\kappa \mathrm{log}(1 / \epsilon)) $ |
+| [EQLS](https://arxiv.org/abs/2305.11352) (partial) | 2023 | $ \text{v-func} $ | $ \mathcal{O}(\kappa \mathrm{log}(\kappa / \epsilon)) $ |  |  |
 
 ℹ Note that $ \mathcal{\Omega}(\kappa \mathrm{log}(1 / \epsilon)) $ is the theoretical lower bound for sparse QLSP
 
