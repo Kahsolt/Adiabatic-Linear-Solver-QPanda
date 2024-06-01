@@ -123,7 +123,7 @@ VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b, DecompositionMode decomp
   qcir << amplitude_encode(qv, amplitude);  // premise 3: correct initial state preparation
   // adiabatic evolution
   for (int s = 1; s <= S; s++) {
-    MatrixXcd H = H_s(float(s) / S);  // premise 4: ideal time-independent hamiltonion schedule
+    MatrixXcd H = H_s(float(s) / S);  // premise 4: ideal time-independent hamiltonian schedule
     MatrixXcd iHt = dcomplex(0, -1) * H * T;
     MatrixXcd U_iHt = iHt.exp();      // premise 5: ideal time evolution operator
     QCircuit qc_TE = matrix_decompose(decompose_method, U_iHt, qv);
@@ -156,7 +156,7 @@ VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b, DecompositionMode deco
   // gated quantum computing
   const int S = 200;    // restrict 1: fixed as contest required
   const int T = 1;      // restrict 2: fixed as contest required (?)
-  const size_t n_qubit = ceil(log2(H0.rows()));   // since we're going to block-encode the hamiltonion H(s), not the matrix A in equation
+  const size_t n_qubit = ceil(log2(H0.rows()));   // since we're going to block-encode the hamiltonian H(s), not the matrix A in equation
   const size_t n_ancilla = 1;   // NOTE: modify this according to your block_encode method :)
   const size_t n_qubit_ex = n_ancilla + n_qubit;
   CPUQVM qvm;
@@ -216,7 +216,7 @@ VectorXcd linear_solver_ours(MatrixXcd A, VectorXcd b, DecompositionMode decompo
   // gated quantum computing
   const int S = 300;    // many logical steps 
   const int T = 10;     // enough long physical time of each step
-  const size_t n_qubit = ceil(log2(H0.rows()));   // since we're going to block-encode the hamiltonion H(s), not the matrix A in equation
+  const size_t n_qubit = ceil(log2(H0.rows()));   // since we're going to block-encode the hamiltonian H(s), not the matrix A in equation
   const size_t n_ancilla = 1;   // NOTE: modify this according to your block_encode method :)
   const size_t n_qubit_ex = n_ancilla + n_qubit;
   CPUQVM qvm;

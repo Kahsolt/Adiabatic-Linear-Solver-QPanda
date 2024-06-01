@@ -17,7 +17,7 @@ T = 500         # walk steps
 λ = 1           # just assume BE is perfect :)
 ver = 'report' # ['essay', 'report', 'no_arcsin']
 
-# system hamiltonion (random)
+# system hamiltonian (random)
 H0 = rand_hermitian(2)
 H1 = rand_hermitian(2)
 κ = 4.2     # FIXME: 先随便xjb估一个kappa...

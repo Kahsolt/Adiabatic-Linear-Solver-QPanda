@@ -13,9 +13,9 @@ from utils import *
 
 # adiabatic evolution hparams
 T = 10000   # physical total time period for evolution
-S = 300     # logical steps of hamiltonion change
+S = 300     # logical steps of hamiltonian change
 
-# system hamiltonion (random)
+# system hamiltonian (random)
 H0 = rand_hermitian(2)
 H1 = rand_hermitian(2)
 if not 'linear':    # linear behaves very bad :(

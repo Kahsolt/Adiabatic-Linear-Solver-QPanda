@@ -120,7 +120,7 @@ assert_unitary(U_H)
 print()
 
 
-''' Method 3: d-sparse Hamiltonion (matrix access oracles) '''
+''' Method 3: d-sparse Hamiltonian (matrix access oracles) '''
 # https://pennylane.ai/qml/demos/tutorial_block_encoding
 
 def oracle_access_framework(A:ndarray):

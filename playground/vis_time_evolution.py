@@ -14,7 +14,7 @@ from utils import *
 # time evolution hparams
 T = np.linspace(0, 10, 1000)   # physical time point for evolution
 
-# system hamiltonion (random)
+# system hamiltonian (random)
 H = rand_hermitian(2)
 
 # system init state

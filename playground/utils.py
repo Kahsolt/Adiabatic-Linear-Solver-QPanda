@@ -269,7 +269,7 @@ def vis_schedulers():
   plt.plot(f_s_AQC_P_2_0,   c='deepskyblue',  label='AQC(P=2)')
   plt.plot(f_s_AQC_P_3_0,   c='lightskyblue', label='AQC(P=3)')
   plt.plot(f_s_AQC_EXP,     c='limegreen',    label='AQC(EXP)')
-  plt.suptitle('f(s): hamiltonion schedulers')
+  plt.suptitle('f(s): hamiltonian schedulers')
   plt.legend()
   plt.show()
 
