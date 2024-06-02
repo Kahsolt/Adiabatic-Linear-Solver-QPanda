@@ -111,7 +111,7 @@ VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b, DecompositionMode decomp
 
   // gated quantum computing
   const int S = 200;    // premise 1: adequate stage count
-  const int T = 10;     // premise 2: adequate physical time during each stage
+  const int T = 4;      // premise 2: adequate physical time during each stage
   const size_t n_qubit = ceil(log2(H0.rows()));
   CPUQVM qvm;
   qvm.setConfigure({n_qubit, n_qubit});
@@ -214,8 +214,8 @@ VectorXcd linear_solver_ours(MatrixXcd A, VectorXcd b, DecompositionMode decompo
   };
 
   // gated quantum computing
-  const int S = 300;    // many logical steps 
-  const int T = 10;     // enough long physical time of each step
+  const int S = 400;    // many logical steps 
+  const int T = 2;      // enough long physical time of each step
   const size_t n_qubit = ceil(log2(H0.rows()));   // since we're going to block-encode the hamiltonian H(s), not the matrix A in equation
   const size_t n_ancilla = 1;   // NOTE: modify this according to your block_encode method :)
   const size_t n_qubit_ex = n_ancilla + n_qubit;

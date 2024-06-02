@@ -30,7 +30,7 @@ print('|x>: ', state_vec(x_gt))
 # quantum walk hparams
 T = 5000        # walk steps
 λ = 1           # just assume BE is perfect :)
-ver = 'report' # ['essay', 'report', 'no_arcsin']
+ver = 'essay'   # ['essay', 'report', 'no_arcsin']
 
 # AQC(p) schedule
 f = make_f_s_AQC_P(2.0, κ)

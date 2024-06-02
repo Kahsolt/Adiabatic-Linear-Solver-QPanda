@@ -210,22 +210,32 @@ def arXiv_1909_05500_AQC():
       T_ref = κ * np.log(κ) / ε
     elif sched == 'exp':    # near Eq. 9
       T_ref = κ * np.log(κ)**2 * np.log(np.log(κ) / ε)**4
+    elif sched == 'v-func':
+      T_ref, f = f          # unpack (override name!)
     T = int(T_ref)          # 总演化的物理时间 (这是一个神秘的超参，过大过小都会直接结果不对！！)，报告视频消融实验里最高取到 T = 1000
     print(f'T: {T} (ref: {T_ref})')
-    S = 1000                # 手工指定迭代次数 ~O(κ^2)，越大精度越高
+    if sched == 'v-func':
+      S = T_ref
+    else:
+      S = 310               # 手工指定迭代次数 ~O(κ^2)，越大精度越高
     h = 1 / S               # 每步演化的物理时间 (这是一个神秘的超参，过大过小都会直接结果不对！！)
     # 制备初态: |\tilde{x}(0)> = |\tilde{b}> = |0,b>
     qs = H0_nullspace[0]
     print('init state:', state_vec(qs))
     # 含时演化
     for s in range(1, 1+S):
-      H = H_s(s / S)        # NOTE: 此处直接模拟哈密顿量的和，暂不用 trotter 分解
-      U_iHt = expm(-1j*H*(T*h))
+      if sched == 'v-func':
+        H = H_s(s)
+        U_iHt = expm(-1j*H*(1027/S))    # fair match AQC(P)
+      else:
+        H = H_s(s / S)        # NOTE: 此处直接模拟哈密顿量的和，暂不用 trotter 分解
+        U_iHt = expm(-1j*H*(T*h))
       qs = U_iHt @ qs
     # 读出末态: |ψ_T(1)> = |\tilde{x}>, 解出 |x>
     print('final state:', state_vec(qs))
     print('fidelity:', get_fidelity(qs, x_ref))
 
+  # f is linear
   print('[vanilla_AQC] O(κ^3/ε)')
   run_with_sched_func(make_f_s_linear(), 'linear')
   print('-' * 42)
@@ -242,6 +252,12 @@ def arXiv_1909_05500_AQC():
   # f is sigmoid-like
   print('[AQC(EXP)] O(κ*log^2(κ)*log^4(log(κ)/ε))')
   run_with_sched_func(make_f_s_AQC_EXP(), 'exp')
+  print('-' * 42)
+
+  # f is v-func in RM
+  print('[AQC(v-func)] O(κ^2*log(κ)/ε)')
+  run_with_sched_func(make_f_s_RM(), 'v-func')
+  print('-' * 42)
 
 print('=' * 42)
 print('[arXiv_1909_05500_AQC]')

@@ -1,15 +1,14 @@
-# QLSDA-QPanda
+# Adiabatic-Linear-Solver-QPanda
 
-    Quantum Linear Systems Solver via Discrete Adiabatic implemented in QPanda (C++)
+    Block Encodings & Quantum Discrete Adiabatic Linear-systems Solver implemented in QPanda (C++)
     第三届CCF“司南杯”量子计算编程挑战赛-通用赛道 决赛
 
 ----
 
-Reproducing the [Quantum Linear Systems Solver via Discrete Adiabatic [arXiv:2111.08152]](https://arxiv.org/abs/2111.08152)
-
 比赛页面: [第三届CCF“司南杯”量子计算编程挑战赛通用赛道](https://learn.originqc.com.cn/zh/contest/list/34/contest:introduction)
 队名: 我吃两个  
 
+👉 初赛的 repo 在这里：[CCF-3rd-Pilot-Cup-first-stage](https://github.com/Kahsolt/CCF-3rd-Pilot-Cup-first-stage)
 
 ### Quickstart
 
@@ -29,7 +28,7 @@ This is the demo run for final linear solver solution:
 - [/src](/src): the real quantum logical circuit implementation in QPanda (C++) and PyQPanda (python)
 
 
-### Methods
+### Implementation
 
 ⚪ block encoding
 
