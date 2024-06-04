@@ -78,6 +78,14 @@ inline MatrixXcd exp_iHt_approx(MatrixXcd H, float t=1.0, int order=1) {
 }
 
 inline QCircuit matrix_decompose(DecompositionMode method, MatrixXcd mat, QVec qv) {
+  if (false) {
+    auto err = (mat * mat.adjoint() - MatrixXcd::Identity(mat.rows(), mat.cols())).cwiseAbs().mean();
+    if (err > 1e-10) {
+      cout << mat << endl;
+      cout << "[matrix_decompose] err: " << err << endl;
+    }
+  }
+
   QCircuit qcir;
   QMatrixXcd qmat = mat;
   switch (method) {
@@ -243,10 +251,7 @@ VectorXcd linear_solver_ours(MatrixXcd A, VectorXcd b, DecompositionMode decompo
   MatrixXcd EF = EF_R_l(H1);
   //EF = normalize_QSVT(EF);
   MatrixXcd U_EF = block_encoding_QSVT(EF).unitary;
-  if (false) {
-    auto err = (U_EF * U_EF.adjoint() - MatrixXcd::Identity(U_EF.rows(), U_EF.cols())).cwiseAbs().sum();
-    cout << "err: " << err << endl;   // err: 1e-9, 精度不够 QR 分解 =_=
-  }
+  // err: 1e-9, 精度不够 QR 分解 =_=
   QCircuit qc_EF = matrix_decompose(DecompositionMode::QSD, U_EF, qv);
   qcir << qc_EF << BARRIER(qv);
   // final state

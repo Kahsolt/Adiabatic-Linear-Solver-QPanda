@@ -22,9 +22,8 @@ int main() {
   for (int i = 0; i < T; i++) {
     MatrixXd A = MatrixXd::Random(2, 2);
     VectorXd b = VectorXd::Random(2);
-    double b_norm = b.norm();
-    A = A / b_norm;
-    b = b / b_norm;
+    A *= A.adjoint();  // arbitrary real symmetric matrix
+    b /= b.norm();     // arbitrary unit vector
 
     // classic (ref)
     x_r = A.colPivHouseholderQr().solve(b);
