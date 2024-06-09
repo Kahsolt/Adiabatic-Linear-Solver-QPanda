@@ -143,7 +143,7 @@ VectorXcd linear_solver_ideal(MatrixXcd A, VectorXcd b, DecompositionMode decomp
   QStat qs = qvm.getQState();
 
   // result
-  qs = QStat(qs.begin(), qs.begin() + 2);  // project only the first qubit
+  qs = QStat(qs.begin(), qs.begin() + N);  // project only the working qubit
   VectorXcd state = Map<VectorXcd>(qs.data(), qs.size());
   return state /= state.norm();
 }
@@ -193,7 +193,7 @@ VectorXcd linear_solver_contest(MatrixXcd A, VectorXcd b, DecompositionMode deco
   QStat qs = qvm.getQState();
 
   // result
-  qs = QStat(qs.begin(), qs.begin() + 2);  // project only the first qubit
+  qs = QStat(qs.begin(), qs.begin() + N);  // project only the working qubit
   VectorXcd state = Map<VectorXcd>(qs.data(), qs.size());
   return state /= state.norm();
 }
@@ -260,7 +260,7 @@ VectorXcd linear_solver_ours(MatrixXcd A, VectorXcd b, DecompositionMode decompo
   QStat qs = qvm.getQState();
 
   // result
-  qs = QStat(qs.begin(), qs.begin() + 2);  // project only the first qubit
+  qs = QStat(qs.begin(), qs.begin() + N);  // project only the working qubit
   VectorXcd state = Map<VectorXcd>(qs.data(), qs.size());
   return state /= state.norm();
 }
@@ -280,6 +280,7 @@ qdals_res qda_linear_solver(MatrixXcd A, VectorXcd b) {
   // quantum solution |x>
   auto b_norm = b.norm();
   VectorXcd x = linear_solver_ours(A / b_norm, b / b_norm, DecompositionMode::QR);
+  x = -x;     // just fix the phase-flip :)
   // fidelity <x_r|x>
   dcomplex fidelity = x_r.adjoint().dot(x);
 

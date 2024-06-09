@@ -162,7 +162,7 @@ def amp_to_bloch(psi:Stat) -> Tuple[float, float]:
   return tht.item(), phi.item()
 
 def get_fidelity(psi:Stat, phi:Stat) -> float:
-  return np.abs(np.dot(psi.T, phi)).item()
+  return np.abs(np.dot(psi.conj().T, phi)).item()
 
 
 def animate_cheap_bloch_plot(xlist:List[float], ylist:List[float], tlist:List[str], auto_lim:bool=False, title:str='Demo', fp:Path=None):

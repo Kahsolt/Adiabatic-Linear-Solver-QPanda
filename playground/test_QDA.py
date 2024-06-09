@@ -9,7 +9,7 @@ import numpy as np
 from pennylane import *
 from pennylane.measurements import StateMP
 
-from utils import A, b, κ, make_f_s_AQC_P, print_matrix
+from utils import A, b, κ, make_f_s_AQC_P, print_matrix, get_fidelity
 from utils import Am, bv, is_posdef, condition_number
 
 if 'magic transform':
@@ -92,11 +92,12 @@ def QDA(S:int=200) -> StateMP:
 
 
 '''
-|x>: [0.42467473+1.14852967e-13j 0.57499991+7.66275448e-14j]
-|x> renorm: [0.59409681+1.60673043e-13j 0.80439355+1.07197761e-13j]
-fidelity: 0.9888820162025821
+S=500
+|x>: [0.43400823+1.27737499e-14j 0.54710271+8.12775863e-15j]
+|x> renorm: [0.62148189+1.82914833e-14j 0.78342853+1.16386153e-14j]
+fidelity: 0.9934216849623057
 '''
-qs = QDA(5000)
+qs = QDA(S=500)
 print('qs:', qs.round(4))
 x = np.asarray([qs[0], qs[8]])
 print('|x>:', x)
@@ -104,4 +105,4 @@ x = x / np.linalg.norm(x)
 print('|x> renorm:', x)
 x_ideal = np.asarray([1, 1])
 x_ideal = x_ideal / np.linalg.norm(x_ideal)
-print('fidelity:', np.abs(np.dot(x.T, x_ideal)))
+print('fidelity:', get_fidelity(x, x_ideal))

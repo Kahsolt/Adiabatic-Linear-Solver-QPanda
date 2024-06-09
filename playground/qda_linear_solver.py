@@ -281,7 +281,7 @@ def arXiv_1910_14596_EF():
   # Eq. 14
   f = lambda s: (1 - κ**(-s)) / (1 - κ**(-1))
 
-# FIXME: NotImplemented
+# NOTE: see impl. in vis_eigen_filter_ls.py
 #print('=' * 42)
 #print('[arXiv_1910_14596_EF]')
 #arXiv_1910_14596_EF()
@@ -403,7 +403,7 @@ def arXiv_2111_08152_QDA():
   x_ref = np.kron(v1, np.kron(h1, x))
   print('fidelity:', get_fidelity(qs, x_ref))
 
-# FIXME: NotImplemented
+# NOTE: see impl. in test_QDA.py
 #print('=' * 42)
 #print('[arXiv_2111_08152_QDA]')
 #arXiv_2111_08152_QDA()
